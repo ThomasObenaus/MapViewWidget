@@ -20,7 +20,7 @@ public class MapViewInfo
 
 	private static Integer	MAYOR_VERSION	= 0;
 	private static Integer	MINOR_VERSION	= 2;
-	private static Integer	PATCH_LEVEL		= 0;
+	private static Integer	PATCH_LEVEL	= 0;
 	private static Integer	BUILD_NUMBER	= 1;
 
 	public static String getLibName( )
