@@ -1,7 +1,12 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
-
 package thobe.mapview.examples;
 
 import java.awt.BorderLayout;
@@ -57,7 +62,7 @@ public class TileLoader extends JFrame
 	private GeoCoord				currentCenterOfImage;
 	private JPanel					pa_buttons;
 
-	public TileLoader()
+	public TileLoader( )
 	{
 		this.setTitle( "TileLoader \t\t[" + MapViewInfo.getLibName( ) + " " + MapViewInfo.getLibVersion( ) + "]" );
 		this.currentCenterOfImage = new GeoCoord( );
@@ -189,7 +194,8 @@ public class TileLoader extends JFrame
 			con.setConnectTimeout( READ_TIMEOUT );
 
 			// check content length
-			if ( con.getContentLengthLong( ) == 0 ) throw new IllegalArgumentException( "Loaded image is empty." );
+			if ( con.getContentLengthLong( ) == 0 )
+				throw new IllegalArgumentException( "Loaded image is empty." );
 
 			// read the image
 			BufferedInputStream in = new BufferedInputStream( con.getInputStream( ) );
@@ -258,8 +264,7 @@ public class TileLoader extends JFrame
 			TileLoader frame = new TileLoader( );
 			frame.setVisible( true );
 		}
-		catch ( ClassNotFoundException | InstantiationException
-				| IllegalAccessException | UnsupportedLookAndFeelException e )
+		catch ( ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e )
 		{
 			e.printStackTrace( );
 		}
@@ -278,7 +283,7 @@ public class TileLoader extends JFrame
 		private int				renderQuality		= RENDER_QUALITY_HIGH;
 		private Image			image;
 
-		public TileView()
+		public TileView( )
 		{
 			this.image = null;
 		}
@@ -307,7 +312,8 @@ public class TileLoader extends JFrame
 					gr.clearRect( 0, 0, this.getWidth( ), this.getHeight( ) );
 
 					// draw the image
-					if ( this.image != null ) gr.drawImage( image, 0, 0, null );
+					if ( this.image != null )
+						gr.drawImage( image, 0, 0, null );
 
 					TileLoader.this.paintOverlay( gr );
 

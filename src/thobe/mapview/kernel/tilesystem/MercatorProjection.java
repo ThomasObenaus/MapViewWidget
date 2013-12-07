@@ -1,5 +1,11 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
 package thobe.mapview.kernel.tilesystem;
 
@@ -68,7 +74,8 @@ public class MercatorProjection
 	}
 
 	/**
-	 * Compute zoom-dependent number of tiles for the whole map. Since the size of the map depends on zoom level (mapheight = mapwitdh = 256 * 2^zoom), the number of tiles (at
+	 * Compute zoom-dependent number of tiles for the whole map. Since the size of the map depends on zoom level (mapheight = mapwitdh = 256
+	 * * 2^zoom), the number of tiles (at
 	 * fixed size of 256) does too. numTiles = 256 * 2^zoom
 	 * @param zoom
 	 * @return
@@ -229,8 +236,10 @@ public class MercatorProjection
 	}
 
 	/**
-	 * Returns the ground resolution at given zoom-level. The ground resolution indicates the distance on the ground that’s represented by a single pixel in the map. For example,
-	 * at a ground resolution of 10 meters/pixel, each pixel represents a ground distance of 10 meters. The ground resolution varies depending on the level of detail and the
+	 * Returns the ground resolution at given zoom-level. The ground resolution indicates the distance on the ground that’s represented by a
+	 * single pixel in the map. For example,
+	 * at a ground resolution of 10 meters/pixel, each pixel represents a ground distance of 10 meters. The ground resolution varies
+	 * depending on the level of detail and the
 	 * latitude at which it’s measured.
 	 * @param latitude - the latitude the resolution should be computed for (in degree)
 	 * @param zoom - the current zoom-level
@@ -248,8 +257,10 @@ public class MercatorProjection
 	}
 
 	/**
-	 * The map scale indicates the ratio between map distance and ground distance, when measured in the same units. For instance, at a map scale of 1 : 100,000, each inch on the
-	 * map represents a ground distance of 100,000 inches. Like the ground resolution, the map scale varies with the level of detail and the latitude of measurement.
+	 * The map scale indicates the ratio between map distance and ground distance, when measured in the same units. For instance, at a map
+	 * scale of 1 : 100,000, each inch on the
+	 * map represents a ground distance of 100,000 inches. Like the ground resolution, the map scale varies with the level of detail and the
+	 * latitude of measurement.
 	 * @param latitude - the latitude the resolution should be computed for (in degree)
 	 * @param zoom - the current zoom-level
 	 * @param screenResolution - resolution of the screen in dpi
@@ -290,12 +301,15 @@ public class MercatorProjection
 	}
 
 	/**
-	 * Computes the coordinate of the pixel that belongs to the given {@link GeoCoord} within the image (tile) that contains the given {@link GeoCoord}.
+	 * Computes the coordinate of the pixel that belongs to the given {@link GeoCoord} within the image (tile) that contains the given
+	 * {@link GeoCoord}.
 	 * @param geoCoord - the {@link GeoCoord}
 	 * @param zoom - the current zoom level
 	 * @return
-	 * @deprecated Can only be used on a tile-based system. Unfortunately the static-maps API returns the image not based/matched in its tile-system-grid but returns an image that
-	 *             is centered at the requested geo-coordinate. Use {@link MercatorProjection#geoCoordToPixelCoordOnImage(GeoCoord, GeoCoord, int, int)} instead.
+	 * @deprecated Can only be used on a tile-based system. Unfortunately the static-maps API returns the image not based/matched in its
+	 *             tile-system-grid but returns an image that
+	 *             is centered at the requested geo-coordinate. Use
+	 *             {@link MercatorProjection#geoCoordToPixelCoordOnImage(GeoCoord, GeoCoord, int, int)} instead.
 	 */
 	public static Point2D geoCoordToPixelCoord( GeoCoord geoCoord, int zoom )
 	{
@@ -315,7 +329,8 @@ public class MercatorProjection
 	 * @param tileNumber - the {@link TileNumber}
 	 * @param zoom - the current zoom level
 	 * @return
-	 * @deprecated Can only be used on a tile-based system. Unfortunately the static-maps API returns the image not based/matched in its tile-system-grid but returns an image that
+	 * @deprecated Can only be used on a tile-based system. Unfortunately the static-maps API returns the image not based/matched in its
+	 *             tile-system-grid but returns an image that
 	 *             is centered at the requested geo-coordinate.
 	 */
 	public static GeoCoord tileNumberToGeoCoord( TileNumber tileNumber, int zoom )

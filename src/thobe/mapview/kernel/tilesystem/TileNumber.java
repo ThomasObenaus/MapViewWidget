@@ -1,22 +1,31 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
 package thobe.mapview.kernel.tilesystem;
 
 /**
- * Class representing an index to address a tile (bing/osm/google tilesystem) or a coordinate within a tile. A {@link TileNumber} corresponds to a {@link GeoCoord} at a specific
+ * Class representing an index to address a tile (bing/osm/google tilesystem) or a coordinate within a tile. A {@link TileNumber}
+ * corresponds to a {@link GeoCoord} at a specific
  * zoom-level of the map.
  * @author Thomas Obenaus
  */
 public class TileNumber
 {
 	/**
-	 * x-coordinate of the tile. This coordinate consists of the index of the tile (integer part) and the position of a geocoordinate within this tile (fractional part).
+	 * x-coordinate of the tile. This coordinate consists of the index of the tile (integer part) and the position of a geocoordinate within
+	 * this tile (fractional part).
 	 */
 	private double	xTile;
 
 	/**
-	 * y-coordinate of the tile. This coordinate consists of the index of the tile (integer part) and the position of a geocoordinate within this tile (fractional part).
+	 * y-coordinate of the tile. This coordinate consists of the index of the tile (integer part) and the position of a geocoordinate within
+	 * this tile (fractional part).
 	 */
 	private double	yTile;
 
@@ -55,7 +64,8 @@ public class TileNumber
 	}
 
 	/**
-	 * Returns the position of the {@link GeoCoord} (represented by this {@link TileNumber}) within the tile addressed by this {@link TileNumber}.
+	 * Returns the position of the {@link GeoCoord} (represented by this {@link TileNumber}) within the tile addressed by this
+	 * {@link TileNumber}.
 	 * @return
 	 */
 	public double getYFrac( )
@@ -64,7 +74,8 @@ public class TileNumber
 	}
 
 	/**
-	 * Returns the position of the {@link GeoCoord} (represented by this {@link TileNumber}) within the tile addressed by this {@link TileNumber}.
+	 * Returns the position of the {@link GeoCoord} (represented by this {@link TileNumber}) within the tile addressed by this
+	 * {@link TileNumber}.
 	 * @return
 	 */
 	public double getXFrac( )

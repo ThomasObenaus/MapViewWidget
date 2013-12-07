@@ -1,5 +1,11 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
 package thobe.mapview.kernel.tileloader;
 
@@ -54,14 +60,17 @@ public class TileRequest implements Runnable
 		Image tileImage = null;
 		boolean completed = false;
 		int retries = 0;
-		
+
 		while ( !completed )
-		{		
+		{
 			try
 			{
-				if ( this.tileCenter == null ) throw new IllegalArgumentException( "Center of tile is null." );
-				if ( this.zoom == -1 ) throw new IllegalArgumentException( "Zoom is invalid." );
-				if ( this.urlBuilder == null ) throw new IllegalArgumentException( "UrlBuilder is null." );
+				if ( this.tileCenter == null )
+					throw new IllegalArgumentException( "Center of tile is null." );
+				if ( this.zoom == -1 )
+					throw new IllegalArgumentException( "Zoom is invalid." );
+				if ( this.urlBuilder == null )
+					throw new IllegalArgumentException( "UrlBuilder is null." );
 
 				this.logger.fine( "Loading " + logPrefix( this.tileId ) + " (center=" + tileCenter.getFormatted( ) + ", size=" + Tile.TILE_SIZE_PX + "x" + Tile.TILE_SIZE_PX + ", zoom=" + this.zoom + ")" );
 
@@ -72,7 +81,8 @@ public class TileRequest implements Runnable
 				con.setConnectTimeout( READ_TIMEOUT );
 
 				// check content length
-				if ( con.getContentLengthLong( ) == 0 ) throw new IllegalArgumentException( "Loaded image is empty." );
+				if ( con.getContentLengthLong( ) == 0 )
+					throw new IllegalArgumentException( "Loaded image is empty." );
 
 				// read the image
 				BufferedInputStream in = new BufferedInputStream( con.getInputStream( ) );

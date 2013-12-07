@@ -1,7 +1,12 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
-
 package thobe.mapview.kernel.tileloader;
 
 import java.awt.Image;
@@ -104,7 +109,8 @@ public class TileLoader extends Thread
 	{
 		State oldState = this.state;
 		this.state = ( this.runningTileRequests.isEmpty( ) ? State.IDLE : State.LOADING );
-		if ( oldState != this.state ) this.log.info( "StateChange: " + oldState + " --> " + this.state );
+		if ( oldState != this.state )
+			this.log.info( "StateChange: " + oldState + " --> " + this.state );
 
 		// find completed TileRequests
 		List<TileRequest> completedRequests = new ArrayList<>( );
@@ -144,11 +150,11 @@ public class TileLoader extends Thread
 		if ( state == State.IDLE )
 			event = this.eventQueue.take( );
 		// in NON-IDLE-state: poll for a new event, but don't block (using poll())
-		else
-			event = this.eventQueue.poll( );
+		else event = this.eventQueue.poll( );
 
 		// no pending event
-		if ( event == null ) return;
+		if ( event == null )
+			return;
 
 		switch ( event )
 		{
@@ -179,7 +185,8 @@ public class TileLoader extends Thread
 
 		State oldState = this.state;
 		this.state = State.LOADING;
-		if ( oldState != this.state ) this.log.info( "StateChange: " + oldState + " --> " + this.state );
+		if ( oldState != this.state )
+			this.log.info( "StateChange: " + oldState + " --> " + this.state );
 
 		// create a new ExecutorService
 		this.executorService = Executors.newFixedThreadPool( this.numWorkers );
@@ -207,11 +214,13 @@ public class TileLoader extends Thread
 
 	private void processCancelAllRequests( ) throws TileLoaderException, InterruptedException
 	{
-		if ( this.executorService == null ) return;
+		if ( this.executorService == null )
+			return;
 
 		State oldState = this.state;
 		this.state = State.CANCELLING;
-		if ( oldState != this.state ) this.log.info( "StateChange: " + oldState + " --> " + this.state );
+		if ( oldState != this.state )
+			this.log.info( "StateChange: " + oldState + " --> " + this.state );
 
 		int numRunningRequests = this.runningTileRequests.size( );
 		this.log.info( "Cancelling " + numRunningRequests + " running requests..." );

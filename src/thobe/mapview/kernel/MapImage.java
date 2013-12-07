@@ -1,7 +1,12 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
-
 package thobe.mapview.kernel;
 
 import java.awt.BasicStroke;
@@ -180,7 +185,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 						saved_cam = new AffineTransform( camera );
 					}
 				}
-				if ( state != 0 ) setRenderQuality( RENDER_QUALITY_LOW );
+				if ( state != 0 )
+					setRenderQuality( RENDER_QUALITY_LOW );
 
 				if ( state != 1 && state != 2 )
 				{
@@ -200,7 +206,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 					}
 				}
 
-				if ( state == 0 ) setRenderQuality( RENDER_QUALITY_HIGH );
+				if ( state == 0 )
+					setRenderQuality( RENDER_QUALITY_HIGH );
 				repaint( );
 			}
 		} );
@@ -313,7 +320,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 		// convert position to a view-position
 		Point2D vpPos = this.posToViewPortPos( position );
 
-		if ( vpPos.getX( ) < 0 || vpPos.getY( ) < 0 ) return null;
+		if ( vpPos.getX( ) < 0 || vpPos.getY( ) < 0 )
+			return null;
 
 		// find the tile under cursor
 		int numTileColumns = this.getNumTileColumns( );
@@ -322,10 +330,12 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int tileId = ( row * numTileColumns ) + column;
 
 		// invalid column
-		if ( column > ( numTileColumns - 1 ) ) return null;
+		if ( column > ( numTileColumns - 1 ) )
+			return null;
 
 		Tile vpTile = this.viewPortTiles.get( tileId );
-		if ( vpTile == null ) return null;
+		if ( vpTile == null )
+			return null;
 
 		// compute position on tile
 		Point2D tilePos = new Point2D.Double( vpPos.getX( ) - vpTile.getX( ), vpPos.getY( ) - vpTile.getY( ) );
@@ -367,7 +377,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 		for ( Map.Entry<Integer, Tile> entry : this.viewPortTiles.entrySet( ) )
 		{
 			Tile tile = entry.getValue( );
-			if ( ( tile.getColumn( ) == column ) && ( tile.getRow( ) == row ) ) return tile;
+			if ( ( tile.getColumn( ) == column ) && ( tile.getRow( ) == row ) )
+				return tile;
 		}
 
 		return null;
@@ -392,7 +403,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	/**
-	 * Transforms the given {@link Rectangle2D} from the current camera coordinate-system into the coordinate-system of the given {@link AffineTransform}.
+	 * Transforms the given {@link Rectangle2D} from the current camera coordinate-system into the coordinate-system of the given
+	 * {@link AffineTransform}.
 	 * @param toTransform
 	 * @param tf
 	 * @return
@@ -438,9 +450,9 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int numVPTileRows = this.getNumTileRows( ) + ( -rowOffset );
 
 		// no tiles at all --> create some
-//		if ( this.viewPortTiles.isEmpty( ) )
+		//		if ( this.viewPortTiles.isEmpty( ) )
 		{
-//			this.viewPortTiles.clear( );
+			//			this.viewPortTiles.clear( );
 			int y = ( int ) this.extendedViewPort.getY( );
 
 			for ( int row = 0; row < numVPTileRows; row++ )
@@ -449,7 +461,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 				for ( int col = 0; col < numVPTileColumns; col++ )
 				{
 					this.viewPortTiles.put( this.tileId, new Tile( tileId, x, y, col, row ) );
-					if ( debug ) log.info( "Tile [" + this.tileId + "] added: col=" + col + ", row=" + row + ")" );
+					if ( debug )
+						log.info( "Tile [" + this.tileId + "] added: col=" + col + ", row=" + row + ")" );
 					this.tileId++;
 					x += Tile.TILE_SIZE_PX;
 				}
@@ -462,7 +475,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 				log.info( "ViewPort: tileWidth=" + numVPTileColumns * Tile.TILE_SIZE_PX + ", tileHeight=" + numVPTileRows * Tile.TILE_SIZE_PX );
 			}
 		}
-//		else
+		//		else
 		{
 
 		}
@@ -498,7 +511,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 				viewPortTile.setZoomLevel( zoomLevel );
 				tileRequests.add( new TileRequest( this.log, this.urlBuilder, viewPortTile.getTileId( ), viewPortTile.getCenter( ), viewPortTile.getZoomLevel( ) ) );
 
-				if ( debug ) log.info( "Tile [" + viewPortTile.getTileId( ) + "] updated and request added: geoCoord=(" + latitude + "," + longitude + ")" );
+				if ( debug )
+					log.info( "Tile [" + viewPortTile.getTileId( ) + "] updated and request added: geoCoord=(" + latitude + "," + longitude + ")" );
 			}
 
 		}
@@ -511,8 +525,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	{
 		if ( debug )
 			return ( int ) Math.round( this.extendedViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX );
-		else
-			return ( int ) Math.round( this.extendedViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX );
+		else return ( int ) Math.round( this.extendedViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX );
 
 	}
 
@@ -520,8 +533,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	{
 		if ( debug )
 			return ( int ) Math.round( this.extendedViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX );
-		else
-			return ( int ) Math.round( this.extendedViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX );
+		else return ( int ) Math.round( this.extendedViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX );
 	}
 
 	private void paint( Graphics2D gr )
@@ -685,24 +697,28 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	/**
-	 * Returns the number of pixels used to extend the current viewport to get the extended viewport. This extension is, like a border, around the current viewport.
+	 * Returns the number of pixels used to extend the current viewport to get the extended viewport. This extension is, like a border,
+	 * around the current viewport.
 	 * @return
 	 */
 	public int getViewPortBorderExtend( )
 	{
-		if ( debug ) return DEBUG_NUM_BORDER_TILES * Tile.TILE_SIZE_PX;
+		if ( debug )
+			return DEBUG_NUM_BORDER_TILES * Tile.TILE_SIZE_PX;
 		return NUM_BORDER_TILES * Tile.TILE_SIZE_PX;
 	}
 
 	public int getBorderSize( )
 	{
-		if ( debug ) return DEBUG_BORDER_SIZE;
+		if ( debug )
+			return DEBUG_BORDER_SIZE;
 		return BORDER_SIZE;
 	}
 
 	public void resetView( )
 	{
-		if ( this.initialCam == null ) return;
+		if ( this.initialCam == null )
+			return;
 		this.camera.setTransform( this.initialCam );
 		this.repaint( );
 	}

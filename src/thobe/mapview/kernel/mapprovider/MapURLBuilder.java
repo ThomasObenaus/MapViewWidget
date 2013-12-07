@@ -1,5 +1,11 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
 package thobe.mapview.kernel.mapprovider;
 
@@ -50,14 +56,15 @@ public abstract class MapURLBuilder
 	public abstract MapProvider getProvider( );
 
 	/**
-	 * Inner class representing a URL-query. By adding queryparameters the corresponding query-part of the url can be retrieved via toString().
+	 * Inner class representing a URL-query. By adding queryparameters the corresponding query-part of the url can be retrieved via
+	 * toString().
 	 * @author Thomas Obenaus
 	 */
 	protected class URLQuery
 	{
 		private Map<String, String>	queryParameters;
 
-		public URLQuery()
+		public URLQuery( )
 		{
 			this.queryParameters = new HashMap<>( );
 		}
@@ -91,7 +98,8 @@ public abstract class MapURLBuilder
 		@Override
 		public String toString( )
 		{
-			if ( this.queryParameters.size( ) == 0 ) return "";
+			if ( this.queryParameters.size( ) == 0 )
+				return "";
 
 			String result = "?";
 
@@ -106,8 +114,7 @@ public abstract class MapURLBuilder
 				{
 					if ( first )
 						first = false;
-					else
-						result += "&";
+					else result += "&";
 					result += key + "=" + value;
 				}
 			}

@@ -1,5 +1,11 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
 package thobe.mapview.kernel.tilesystem;
 
@@ -68,7 +74,7 @@ public class Tile implements Cloneable
 	private boolean			valid;
 	private Rectangle2D		bounds;
 
-	public Tile( int id,int x,int y, int column, int row )
+	public Tile( int id, int x, int y, int column, int row )
 	{
 		this.valid = false;
 		this.column = column;
@@ -159,12 +165,14 @@ public class Tile implements Cloneable
 	}
 
 	/**
-	 * Returns an {@link Image} representing this {@link Tile} ( {@link GeoCoord} at agiven zoom-level ) or a default image if none is available.
+	 * Returns an {@link Image} representing this {@link Tile} ( {@link GeoCoord} at agiven zoom-level ) or a default image if none is
+	 * available.
 	 * @return
 	 */
 	public synchronized Image getImage( )
 	{
-		if ( this.image == null ) return defaultImg;
+		if ( this.image == null )
+			return defaultImg;
 		return image;
 	}
 
@@ -182,8 +190,7 @@ public class Tile implements Cloneable
 			tileClone = ( Tile ) super.clone( );
 		}
 		catch ( CloneNotSupportedException e )
-		{
-		}
+		{}
 		return tileClone;
 	}
 }

@@ -1,7 +1,12 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
-
 package thobe.mapview.examples;
 
 import java.util.ArrayList;
@@ -35,7 +40,7 @@ public class CallableFutures
 			try
 			{
 				sum += future.get( );
-				System.out.println( sum  );
+				System.out.println( sum );
 			}
 			catch ( InterruptedException e )
 			{
@@ -59,7 +64,7 @@ class MyCallable implements Callable<Long>
 		long sum = 0;
 		for ( long i = 0; i <= 100; i++ )
 		{
-			sum += i;			
+			sum += i;
 		}
 		Thread.sleep( 5000 );
 		return sum;

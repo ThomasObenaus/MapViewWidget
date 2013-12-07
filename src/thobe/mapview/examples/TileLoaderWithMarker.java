@@ -1,7 +1,12 @@
 /*
- * Copyright (C) 2013 ThObe. All rights reserved. Author: Thomas Obenaus EMail: thobepro@gmail.com Project: MapView
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
+ *
+ *	Author: 	Thomas Obenaus
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
-
 package thobe.mapview.examples;
 
 import java.awt.Color;
@@ -36,7 +41,7 @@ public class TileLoaderWithMarker extends TileLoader
 	private int					mouseX;
 	private int					mouseY;
 
-	public TileLoaderWithMarker()
+	public TileLoaderWithMarker( )
 	{
 		this.setTitle( "TileLoaderWithMarker \t\t[" + MapViewInfo.getLibName( ) + " " + MapViewInfo.getLibVersion( ) + "]" );
 		this.mouseX = 0;
@@ -65,8 +70,7 @@ public class TileLoaderWithMarker extends TileLoader
 			TileLoaderWithMarker frame = new TileLoaderWithMarker( );
 			frame.setVisible( true );
 		}
-		catch ( ClassNotFoundException | InstantiationException
-				| IllegalAccessException | UnsupportedLookAndFeelException e )
+		catch ( ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e )
 		{
 			e.printStackTrace( );
 		}

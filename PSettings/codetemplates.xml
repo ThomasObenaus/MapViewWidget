@@ -1,9 +1,11 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?><templates><template autoinsert="false" context="newtype_context" deleted="false" description="Newly created files" enabled="true" id="org.eclipse.jdt.ui.text.codetemplates.newtype" name="newtype">/*
- *  Copyright (C) 2013 ThObe. All rights reserved.
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><templates><template autoinsert="false" context="newtype_context" deleted="true" description="Newly created files" enabled="true" id="org.eclipse.jdt.ui.text.codetemplates.newtype" name="newtype">/*
+ *  Copyright (C) 2013, Thomas Obenaus. All rights reserved.
+ *  Licensed under the New BSD License (3-clause lic)
+ *  See attached license-file.
  *
  *	Author: 	Thomas Obenaus
- *	EMail:		thobepro@gmail.com
- *  Project:    MapView
+ *	EMail:		obenaus.thomas@gmail.com
+ *  Project:    MapViewWidget
  */
 
 ${package_declaration}
