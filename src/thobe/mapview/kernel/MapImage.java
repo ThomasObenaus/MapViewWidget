@@ -9,6 +9,9 @@
  */
 package thobe.mapview.kernel;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+
 import java.awt.BasicStroke;
 import java.awt.Canvas;
 import java.awt.Color;
@@ -27,7 +30,6 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
-import java.awt.geom.Rectangle2D.Double;
 import java.awt.image.BufferStrategy;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,7 +57,7 @@ import thobe.mapview.kernel.tilesystem.Tile;
 @SuppressWarnings ( "serial")
 public class MapImage extends Canvas implements TileLoaderListener
 {
-	private static final Color			DEBUG_COLOR				= Color.RED;
+	private static final Color			DEBUG_COLOR				= Color.BLACK;
 	private static final Stroke			DEBUG_STROKE			= new BasicStroke( 3 );
 	private static final Font			DEBUG_FONT				= new Font( "Arial", Font.BOLD, 12 );
 	private static final Font			DEBUG_FONT_BIG			= new Font( "Arial", Font.BOLD, 25 );
@@ -80,7 +82,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 	private static boolean				debug;
 
-	private Map<Integer, Tile>			viewPortTiles;
+	private Map<String, Tile>			viewPortTiles;
 
 	private MapProvider					mapProvider;
 	private GeoCoord					mapCenter;
@@ -106,9 +108,13 @@ public class MapImage extends Canvas implements TileLoaderListener
 	private AffineTransform				saved_cam;														/* camera transform when the mouse was pressed down */
 
 	private Rectangle2D					viewPort;
-	private Rectangle2D					extendedViewPort;
+	private Rectangle2D					innerExtViewPort;
+	private Rectangle2D					outerExtViewPort;
+
+	/**
+	 * Bounds of the currently visible {@link Tile}s in outer view-port coordinates.
+	 */
 	private Rectangle2D					tileGridBounds;
-	private int							tileId;
 
 	public MapImage( int viewPortWidth, int viewPortHeight, GeoCoord mapCenter, int zoomLevel, MapProvider mapProvider, Logger logger )
 	{
@@ -240,6 +246,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 					//						updateImage( );
 					//					}
 					buildImageTiles( );
+					updateImage( );
 					repaint( );
 				}
 
@@ -288,7 +295,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 	public MapImage( int viewPortWidth, int viewPortHeight, Logger logger )
 	{
-		this( viewPortWidth, viewPortHeight, new GeoCoord( 51.053631, 13.740810 ), 12, MapProvider.OSMStaticMapLite, logger );
+		this( viewPortWidth, viewPortHeight, new GeoCoord( 51.476161, 0.000595 ), 12, MapProvider.OSMStaticMapLite, logger );
+		//		this( viewPortWidth, viewPortHeight, new GeoCoord( 51.053631, 13.740810 ), 12, MapProvider.OSMStaticMapLite, logger );
 	}
 
 	/**
@@ -296,17 +304,24 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 * @param pos
 	 * @return
 	 */
-	public Point2D posToViewPortPos( Point2D pos )
+	public Point2D screenPosToViewPortPos( Point2D pos )
 	{
 		Point2D result = null;
 		try
 		{
-			result = camera.inverseTransform( new Point2D.Double( pos.getX( ) - this.extendedViewPort.getX( ), pos.getY( ) - this.extendedViewPort.getY( ) ), result );
+			result = camera.inverseTransform( new Point2D.Double( pos.getX( ), pos.getY( ) ), result );
 		}
 		catch ( NoninvertibleTransformException e )
 		{
 			e.printStackTrace( );
 		}
+		return result;
+	}
+
+	public Point2D viewPortPosToScreenPos( Point2D pos )
+	{
+		Point2D result = null;
+		result = camera.transform( new Point2D.Double( pos.getX( ), pos.getY( ) ), result );
 		return result;
 	}
 
@@ -318,7 +333,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	public GeoCoord posToGeoCoord( Point2D position )
 	{
 		// convert position to a view-position
-		Point2D vpPos = this.posToViewPortPos( position );
+		Point2D vpPos = this.screenPosToViewPortPos( position );
 
 		if ( vpPos.getX( ) < 0 || vpPos.getY( ) < 0 )
 			return null;
@@ -361,7 +376,15 @@ public class MapImage extends Canvas implements TileLoaderListener
 	public void setViewPort( int width, int height )
 	{
 		this.viewPort = new Rectangle2D.Double( this.getBorderSize( ), this.getBorderSize( ), width - ( 2 * this.getBorderSize( ) ), height - ( 2 * this.getBorderSize( ) ) );
-		this.extendedViewPort = new Rectangle2D.Double( this.viewPort.getX( ) - this.getViewPortBorderExtend( ), this.viewPort.getY( ) - this.getViewPortBorderExtend( ), this.viewPort.getWidth( ) + ( 2 * this.getViewPortBorderExtend( ) ), this.viewPort.getHeight( ) + ( 2 * this.getViewPortBorderExtend( ) ) );
+
+		// extend to compute the inner-extended view-port
+		int innerExtViewportSize = this.getViewPortBorderExtend( );
+		this.innerExtViewPort = new Rectangle2D.Double( this.viewPort.getX( ) - innerExtViewportSize, this.viewPort.getY( ) - innerExtViewportSize, this.viewPort.getWidth( ) + ( 2 * innerExtViewportSize ), this.viewPort.getHeight( ) + ( 2 * innerExtViewportSize ) );
+
+		// extend to compute the outer-extended view-port
+		int outerExtViewportSize = innerExtViewportSize * 2;
+		this.outerExtViewPort = new Rectangle2D.Double( this.viewPort.getX( ) - outerExtViewportSize, this.viewPort.getY( ) - outerExtViewportSize, this.viewPort.getWidth( ) + ( 2 * outerExtViewportSize ), this.viewPort.getHeight( ) + ( 2 * outerExtViewportSize ) );
+
 		this.buildImageTiles( );
 		this.updateImage( );
 	}
@@ -374,7 +397,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 */
 	private Tile getTile( int column, int row )
 	{
-		for ( Map.Entry<Integer, Tile> entry : this.viewPortTiles.entrySet( ) )
+		for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
 		{
 			Tile tile = entry.getValue( );
 			if ( ( tile.getColumn( ) == column ) && ( tile.getRow( ) == row ) )
@@ -389,7 +412,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int minColumn = Integer.MAX_VALUE;
 		int minRow = Integer.MAX_VALUE;
 		Tile tile = null;
-		for ( Map.Entry<Integer, Tile> entry : this.viewPortTiles.entrySet( ) )
+		for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
 		{
 			Tile tmpTile = entry.getValue( );
 			if ( ( tmpTile.getColumn( ) <= minColumn ) && ( tmpTile.getRow( ) <= minRow ) )
@@ -419,70 +442,120 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 	private void buildImageTiles( )
 	{
-		// remove tiles fully outside of the view-port
+		// update the bounds of visible tiles
+		this.updateTileGridBounds( );
+
+		// compute how many rows/columns are needed to cover the inner extended view-port
+		// find missing rows on the left and columns on the top
+		int missingColumnsLeft = ( int ) Math.floor( ( this.tileGridBounds.getX( ) - this.innerExtViewPort.getX( ) ) / ( double ) Tile.TILE_SIZE_PX ) + 1;
+		int missingRowsTop = ( int ) Math.floor( ( this.tileGridBounds.getY( ) - this.innerExtViewPort.getY( ) ) / ( double ) Tile.TILE_SIZE_PX ) + 1;
+
+		// reset to 0 if no rows/columns are missing
+		if ( missingColumnsLeft < 0 )
+			missingColumnsLeft = 0;
+		if ( missingRowsTop < 0 )
+			missingRowsTop = 0;
+
+		// compute the top-left column/row
+		int column0 = 0;
+		int row0 = 0;
+		Tile topLeft = this.getTopLeftTile( );
+		if ( topLeft != null )
+		{
+			column0 = topLeft.getColumn( ) - missingColumnsLeft;
+			row0 = topLeft.getRow( ) - missingRowsTop;
+		}
+
+		// compute the top-left corner
+		int x0 = ( int ) ( column0 * Tile.TILE_SIZE_PX + this.outerExtViewPort.getX( ) );
+		int y0 = ( int ) ( row0 * Tile.TILE_SIZE_PX + this.outerExtViewPort.getY( ) );
+
+		// compute how many columns/rows are visible
+		int numVPTileColumns = missingColumnsLeft + this.getNumTileColumns( ) + column0;
+		int numVPTileRows = missingRowsTop + this.getNumTileRows( ) + row0;
+
+		// compute the delta/difference if the current geocoord will be moved by n pixel (half size of one tile)		
+		GeoCoord delta = MercatorProjection.computeDeltaGeoCoord( mapCenter, this.zoomLevel, Tile.HALF_TILE_SIZE_PX );
+		GeoCoord topLeftGeoCoord = new GeoCoord( mapCenter.getLatitude( ) - (  (numVPTileRows/2d) * delta.getLatitude( ) ), mapCenter.getLongitude( ) - ( (numVPTileColumns/2d)* delta.getLongitude( ) ) );
+
+		int y = y0;
+		for ( int row = row0; row < numVPTileRows; row++ )
+		{
+			int x = x0;
+			for ( int col = column0; col < numVPTileColumns; col++ )
+			{
+				String tileId = Tile.colRowToTileId( col, row );
+				Tile tile = this.viewPortTiles.get( tileId );
+
+				if ( tile == null )
+				{
+					tile = new Tile( tileId, x, y );
+					this.viewPortTiles.put( tileId, tile );
+					if ( debug )
+						log.fine( "Tile [" + tile.getTileId( ) + "] added: col=" + col + ", row=" + row + ")" );
+				}
+				// update the geo-coordinate matching the position within the tile-grid
+				double latitude = topLeftGeoCoord.getLatitude( ) + ( delta.getLatitude( ) * row );
+				double longitude = topLeftGeoCoord.getLongitude( ) + (  delta.getLongitude( ) * col );
+				tile.setCenter( new GeoCoord( latitude, longitude ) );
+				tile.setZoomLevel( zoomLevel );
+				
+				x += Tile.TILE_SIZE_PX;
+			}
+			y += Tile.TILE_SIZE_PX;
+		}
+
+		// remove tiles fully outside of the outer extended view-port
 		List<Tile> toRemove = new ArrayList<Tile>( );
-		for ( Map.Entry<Integer, Tile> entry : this.viewPortTiles.entrySet( ) )
+		for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
 		{
 			Tile tile = entry.getValue( );
 			Rectangle2D tileBounds = toExtendedViewPortCoordinates( tile.getBounds( ), this.camera );
-			if ( !this.extendedViewPort.intersects( tileBounds ) )
+			if ( !this.outerExtViewPort.intersects( tileBounds ) )
 			{
 				toRemove.add( tile );
 			}
 		}
-
+		// now remove the tiles 
 		for ( Tile tile : toRemove )
 		{
 			this.viewPortTiles.remove( tile.getTileId( ) );
 		}
+	}
 
-		Tile topLeft = this.getTopLeftTile( );
-		int columnOffset = 0;
-		int rowOffset = 0;
-		if ( topLeft != null )
+	private void updateTileGridBounds( )
+	{
+		// no tiles --> bounds are [0,0,0,0]
+		if ( this.viewPortTiles.isEmpty( ) )
 		{
-			columnOffset = topLeft.getX( );
-			rowOffset = topLeft.getY( );
+			this.tileGridBounds.setRect( 0, 0, 0, 0 );
 		}
-
-		// determine number of tiles needed for viewport
-		int numVPTileColumns = this.getNumTileColumns( ) + ( -columnOffset );
-		int numVPTileRows = this.getNumTileRows( ) + ( -rowOffset );
-
-		// no tiles at all --> create some
-		//		if ( this.viewPortTiles.isEmpty( ) )
+		else
 		{
-			//			this.viewPortTiles.clear( );
-			int y = ( int ) this.extendedViewPort.getY( );
+			int minX = Integer.MAX_VALUE;
+			int minY = Integer.MAX_VALUE;
+			int maxX = -Integer.MAX_VALUE;
+			int maxY = -Integer.MAX_VALUE;
 
-			for ( int row = 0; row < numVPTileRows; row++ )
+			for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
 			{
-				int x = ( int ) this.extendedViewPort.getX( );
-				for ( int col = 0; col < numVPTileColumns; col++ )
-				{
-					this.viewPortTiles.put( this.tileId, new Tile( tileId, x, y, col, row ) );
-					if ( debug )
-						log.info( "Tile [" + this.tileId + "] added: col=" + col + ", row=" + row + ")" );
-					this.tileId++;
-					x += Tile.TILE_SIZE_PX;
-				}
-				y += Tile.TILE_SIZE_PX;
+				Tile tile = entry.getValue( );
+				minX = min( minX, tile.getX( ) );
+				minY = min( minY, tile.getY( ) );
+				maxX = max( maxX, tile.getX( ) );
+				maxY = max( maxY, tile.getY( ) );
 			}
 
-			if ( debug )
-			{
-				log.info( "ViewPort: numVPTileColumns=" + numVPTileColumns + ", numVPTileRows=" + numVPTileRows );
-				log.info( "ViewPort: tileWidth=" + numVPTileColumns * Tile.TILE_SIZE_PX + ", tileHeight=" + numVPTileRows * Tile.TILE_SIZE_PX );
-			}
-		}
-		//		else
-		{
-
+			Point2D upperLeftCorner = viewPortPosToScreenPos( new Point2D.Double( minX, minY ) );
+			double width = ( maxX - minX ) + Tile.TILE_SIZE_PX;
+			double height = ( maxY - minY ) + Tile.TILE_SIZE_PX;
+			this.tileGridBounds.setRect( upperLeftCorner.getX( ), upperLeftCorner.getY( ), width, height );
 		}
 	}
 
 	private void updateImage( )
 	{
+
 		// determine number of tiles needed for viewport
 		int numVPTileColumns = this.getNumTileColumns( );
 		int numVPTileRows = this.getNumTileRows( );
@@ -491,10 +564,11 @@ public class MapImage extends Canvas implements TileLoaderListener
 		GeoCoord delta = MercatorProjection.computeDeltaGeoCoord( mapCenter, this.zoomLevel, Tile.HALF_TILE_SIZE_PX );
 
 		// compute top-left geo-coord
-		GeoCoord topLeft = new GeoCoord( mapCenter.getLatitude( ) - ( ( numVPTileColumns - 1 ) * delta.getLatitude( ) ), mapCenter.getLongitude( ) - ( ( numVPTileRows - 1 ) * delta.getLongitude( ) ) );
+		//GeoCoord topLeft = new GeoCoord( mapCenter.getLatitude( ) - ( ( numVPTileColumns - 1 ) * delta.getLatitude( ) ), mapCenter.getLongitude( ) - ( ( numVPTileRows - 1 ) * delta.getLongitude( ) ) );
+		GeoCoord topLeft = new GeoCoord( mapCenter.getLatitude( ), mapCenter.getLongitude( ) );
 
 		List<TileRequest> tileRequests = new ArrayList<>( );
-		for ( Map.Entry<Integer, Tile> entry : this.viewPortTiles.entrySet( ) )
+		for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
 		{
 			Tile viewPortTile = entry.getValue( );
 
@@ -507,33 +581,30 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 			if ( !viewPortTile.isValid( ) )
 			{
-				viewPortTile.setCenter( new GeoCoord( latitude, longitude ) );
-				viewPortTile.setZoomLevel( zoomLevel );
+//				viewPortTile.setCenter( new GeoCoord( latitude, longitude ) );
+//				viewPortTile.setZoomLevel( zoomLevel );
 				tileRequests.add( new TileRequest( this.log, this.urlBuilder, viewPortTile.getTileId( ), viewPortTile.getCenter( ), viewPortTile.getZoomLevel( ) ) );
-
 				if ( debug )
 					log.info( "Tile [" + viewPortTile.getTileId( ) + "] updated and request added: geoCoord=(" + latitude + "," + longitude + ")" );
 			}
 
 		}
 
-		this.tileLoader.cancelAllRequests( );
-		this.tileLoader.addTileRequestBlock( tileRequests );
+		if ( !tileRequests.isEmpty( ) )
+		{
+			this.tileLoader.cancelAllRequests( );
+			this.tileLoader.addTileRequestBlock( tileRequests );
+		}
 	}
 
 	private int getNumTileColumns( )
 	{
-		if ( debug )
-			return ( int ) Math.round( this.extendedViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX );
-		else return ( int ) Math.round( this.extendedViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX );
-
+		return ( int ) Math.round( this.outerExtViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX );
 	}
 
 	private int getNumTileRows( )
 	{
-		if ( debug )
-			return ( int ) Math.round( this.extendedViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX );
-		else return ( int ) Math.round( this.extendedViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX );
+		return ( int ) Math.round( this.outerExtViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX );
 	}
 
 	private void paint( Graphics2D gr )
@@ -542,7 +613,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 		List<Tile> tmpTiles = new ArrayList<>( );
 		synchronized ( this.viewPortTiles )
 		{
-			for ( Map.Entry<Integer, Tile> entry : this.viewPortTiles.entrySet( ) )
+			for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
 			{
 				tmpTiles.add( ( Tile ) entry.getValue( ).clone( ) );
 			}
@@ -557,21 +628,22 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 			if ( debug )
 			{
+				gr.fillRect( ( int ) this.viewPort.getCenterX( ) - 5, ( int ) this.viewPort.getCenterY( ) - 5, 10, 10 );
+
 				gr.setColor( DEBUG_COLOR );
 				gr.drawRect( posX, posY, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
 				gr.drawLine( ( posX + Tile.HALF_TILE_SIZE_PX ) - 20, posY + Tile.HALF_TILE_SIZE_PX, ( posX + Tile.HALF_TILE_SIZE_PX ) + 20, posY + Tile.HALF_TILE_SIZE_PX );
-				gr.drawLine( posX + Tile.HALF_TILE_SIZE_PX, ( posY + Tile.HALF_TILE_SIZE_PX ) - 20, posX + Tile.HALF_TILE_SIZE_PX, ( posY + Tile.HALF_TILE_SIZE_PX ) + 20 );
+				gr.drawLine( posX + Tile.HALF_TILE_SIZE_PX, ( posY + Tile.HALF_TILE_SIZE_PX ), posX + Tile.HALF_TILE_SIZE_PX, ( posY + Tile.HALF_TILE_SIZE_PX ) + 20 );
 
 				gr.setFont( DEBUG_FONT );
 				gr.drawString( "ImgCoord=(" + viewPortTile.getX( ) + "," + viewPortTile.getY( ) + ")", posX + 10, posY + 20 );
-				gr.drawString( "GeoCoord=(" + viewPortTile.getCenter( ).getFormatted( ) + ")", posX + 10, posY + 40 );
-				gr.drawString( "ZoomLevel=(" + viewPortTile.getZoomLevel( ) + ")", posX + 10, posY + 60 );
+				gr.drawString( "GeoCoord=(" + viewPortTile.getCenter( ).getFormatted( ) + ")", posX + 10, posY + 35 );
+				gr.drawString( "ZoomLevel=(" + viewPortTile.getZoomLevel( ) + ")", posX + 10, posY + 50 );
 
 				gr.setFont( DEBUG_FONT_BIG );
 				gr.drawString( viewPortTile.getTileId( ) + "", Tile.HALF_TILE_SIZE_PX + posX, Tile.HALF_TILE_SIZE_PX + posY );
 			}
 		}
-
 	}
 
 	@Override
@@ -612,18 +684,27 @@ public class MapImage extends Canvas implements TileLoaderListener
 					gr.drawString( "Canvas: Size=(" + this.getWidth( ) + "," + this.getHeight( ) + ")", 10, 20 );
 					gr.drawString( "ViewPort: Pos=(" + x0 + "," + y0 + "), Size=(" + width + "," + height + ")", 10, 40 );
 
-					// draw extendedview port
+					// draw inner extended view port
 					gr.setStroke( DEBUG_STROKE );
 
-					x0 = ( int ) this.extendedViewPort.getX( );
-					y0 = ( int ) this.extendedViewPort.getY( );
-					width = ( int ) this.extendedViewPort.getWidth( );
-					height = ( int ) this.extendedViewPort.getHeight( );
+					x0 = ( int ) this.innerExtViewPort.getX( );
+					y0 = ( int ) this.innerExtViewPort.getY( );
+					width = ( int ) this.innerExtViewPort.getWidth( );
+					height = ( int ) this.innerExtViewPort.getHeight( );
 					gr.drawRect( x0, y0, width, height );
 
 					gr.setFont( DEBUG_FONT );
 					gr.setColor( Color.BLUE );
-					gr.drawString( "ExtViewPort: Pos=(" + x0 + "," + y0 + "), Size=(" + width + "," + height + ")", 10, 60 );
+					gr.drawString( "InnerExtViewPort: Pos=(" + x0 + "," + y0 + "), Size=(" + width + "," + height + ")", 10, 60 );
+
+					// draw outer extended view port
+					x0 = ( int ) this.outerExtViewPort.getX( );
+					y0 = ( int ) this.outerExtViewPort.getY( );
+					width = ( int ) this.outerExtViewPort.getWidth( );
+					height = ( int ) this.outerExtViewPort.getHeight( );
+					gr.drawRect( x0, y0, width, height );
+					gr.drawString( "OuterExtViewPort: Pos=(" + x0 + "," + y0 + "), Size=(" + width + "," + height + ")", 10, 80 );
+					gr.drawString( "MapCenter: (" + this.mapCenter.getFormatted( ), 10, 100 );
 				}
 				gr.dispose( );
 			}
@@ -724,7 +805,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	@Override
-	public void onTileLoadRequestComplete( int tileId, Image image )
+	public void onTileLoadRequestComplete( String tileId, Image image )
 	{
 		// protect the tiles
 		synchronized ( this.viewPortTiles )
@@ -748,7 +829,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	@Override
-	public void onTileLoadRequestStarted( int tileId )
+	public void onTileLoadRequestStarted( String tileId )
 	{
 		synchronized ( this.viewPortTiles )
 		{
@@ -762,7 +843,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	@Override
-	public void onTileLoadRequestFailed( int tileId, FailReason reason, String cause )
+	public void onTileLoadRequestFailed( String tileId, FailReason reason, String cause )
 	{
 		synchronized ( this.viewPortTiles )
 		{

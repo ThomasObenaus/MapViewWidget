@@ -110,7 +110,7 @@ public class TileLoader extends Thread
 		State oldState = this.state;
 		this.state = ( this.runningTileRequests.isEmpty( ) ? State.IDLE : State.LOADING );
 		if ( oldState != this.state )
-			this.log.info( "StateChange: " + oldState + " --> " + this.state );
+			this.log.fine( "StateChange: " + oldState + " --> " + this.state );
 
 		// find completed TileRequests
 		List<TileRequest> completedRequests = new ArrayList<>( );
@@ -186,7 +186,7 @@ public class TileLoader extends Thread
 		State oldState = this.state;
 		this.state = State.LOADING;
 		if ( oldState != this.state )
-			this.log.info( "StateChange: " + oldState + " --> " + this.state );
+			this.log.fine( "StateChange: " + oldState + " --> " + this.state );
 
 		// create a new ExecutorService
 		this.executorService = Executors.newFixedThreadPool( this.numWorkers );
@@ -220,10 +220,10 @@ public class TileLoader extends Thread
 		State oldState = this.state;
 		this.state = State.CANCELLING;
 		if ( oldState != this.state )
-			this.log.info( "StateChange: " + oldState + " --> " + this.state );
+			this.log.fine( "StateChange: " + oldState + " --> " + this.state );
 
 		int numRunningRequests = this.runningTileRequests.size( );
-		this.log.info( "Cancelling " + numRunningRequests + " running requests..." );
+		this.log.fine( "Cancelling " + numRunningRequests + " running requests..." );
 		// cancel all running tasks, block adding pending ones
 		this.executorService.shutdownNow( );
 
@@ -251,7 +251,7 @@ public class TileLoader extends Thread
 		}
 		this.runningTileRequests.clear( );
 
-		this.log.info( "Cancelling " + numRunningRequests + " running requests...done" );
+		this.log.fine( "Cancelling " + numRunningRequests + " running requests...done" );
 	}
 
 	public void addTileRequestBlock( List<TileRequest> requestBlock )
@@ -299,19 +299,19 @@ public class TileLoader extends Thread
 		this.listeners.remove( l );
 	}
 
-	private void fireTileLoadRequestComplete( int tileId, Image image )
+	private void fireTileLoadRequestComplete( String tileId, Image image )
 	{
 		for ( TileLoaderListener l : this.listeners )
 			l.onTileLoadRequestComplete( tileId, image );
 	}
 
-	private void fireTileLoadRequestStarted( int tileId )
+	private void fireTileLoadRequestStarted( String tileId )
 	{
 		for ( TileLoaderListener l : this.listeners )
 			l.onTileLoadRequestStarted( tileId );
 	}
 
-	private void fireTileLoadRequestFailed( int tileId, FailReason reason, String cause )
+	private void fireTileLoadRequestFailed( String tileId, FailReason reason, String cause )
 	{
 		for ( TileLoaderListener l : this.listeners )
 			l.onTileLoadRequestFailed( tileId, reason, cause );

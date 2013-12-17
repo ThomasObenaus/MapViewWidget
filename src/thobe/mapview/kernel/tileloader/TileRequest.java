@@ -36,12 +36,12 @@ public class TileRequest implements Runnable
 	private int					zoom;
 	private MapURLBuilder		urlBuilder;
 	private GeoCoord			tileCenter;
-	private int					tileId;
+	private String				tileId;
 	private Image				image;
 	private String				error;
 	private boolean				terminated;
 
-	public TileRequest( Logger logger, MapURLBuilder urlBuilder, int tileId, GeoCoord tileCenter, int zoom )
+	public TileRequest( Logger logger, MapURLBuilder urlBuilder, String tileId, GeoCoord tileCenter, int zoom )
 	{
 		this.error = null;
 		this.image = null;
@@ -75,7 +75,7 @@ public class TileRequest implements Runnable
 				this.logger.fine( "Loading " + logPrefix( this.tileId ) + " (center=" + tileCenter.getFormatted( ) + ", size=" + Tile.TILE_SIZE_PX + "x" + Tile.TILE_SIZE_PX + ", zoom=" + this.zoom + ")" );
 
 				URL url = this.urlBuilder.buildURL( tileCenter, this.zoom, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
-				this.logger.fine( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
+				this.logger.info( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
 				URLConnection con = url.openConnection( );
 				con.setReadTimeout( READ_TIMEOUT );
 				con.setConnectTimeout( READ_TIMEOUT );
@@ -117,7 +117,7 @@ public class TileRequest implements Runnable
 		return terminated;
 	}
 
-	public int getTileId( )
+	public String getTileId( )
 	{
 		return tileId;
 	}
@@ -137,7 +137,7 @@ public class TileRequest implements Runnable
 		return image;
 	}
 
-	private static String logPrefix( int tileId )
+	private static String logPrefix( String tileId )
 	{
 		return "Tile [" + tileId + "]";
 	}

@@ -24,11 +24,13 @@ public class Tile implements Cloneable
 	/**
 	 * Number of pixels for one tile
 	 */
-	public static final int	TILE_SIZE_PX		= 256;
+	public static final int		TILE_SIZE_PX		= 200;
 
-	public static final int	HALF_TILE_SIZE_PX	= TILE_SIZE_PX / 2;
+	public static final int		HALF_TILE_SIZE_PX	= TILE_SIZE_PX / 2;
 
-	private static Image	defaultImg;
+	public static final String	TILE_ID_DELIMITER	= ",";
+
+	private static Image		defaultImg;
 
 	/**
 	 * create the default image (LIGHT_GRAY)
@@ -44,41 +46,41 @@ public class Tile implements Cloneable
 	/**
 	 * The image representing this {@link Tile}
 	 */
-	private Image			image;
+	private Image				image;
 
 	/**
 	 * The center of this {@link Tile}
 	 */
-	private GeoCoord		center;
+	private GeoCoord			center;
 
 	/**
 	 * The zoom-level
 	 */
-	private int				zoomLevel;
+	private int					zoomLevel;
 
 	/**
 	 * Position (X) within the MapImage.
 	 */
-	private int				y;
+	private int					y;
 
 	/**
 	 * Position (Y) within the MapImage.
 	 */
-	private int				x;
+	private int					x;
 
-	private int				tileId;
+	private String				tileId;
 
-	private int				column;
-	private int				row;
+	private int					column;
+	private int					row;
 
-	private boolean			valid;
-	private Rectangle2D		bounds;
+	private boolean				valid;
+	private Rectangle2D			bounds;
 
-	public Tile( int id, int x, int y, int column, int row )
+	public Tile( String id, int x, int y )
 	{
 		this.valid = false;
-		this.column = column;
-		this.row = row;
+		this.column = tileIdToColumn( id );
+		this.row = tileIdToRow( id );
 		this.x = x;
 		this.y = y;
 		this.bounds = new Rectangle2D.Double( this.x, this.y, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
@@ -87,6 +89,23 @@ public class Tile implements Cloneable
 		this.image = null;
 		this.center = new GeoCoord( );
 		this.zoomLevel = 12;
+	}
+
+	public static String colRowToTileId( int column, int row )
+	{
+		return column + TILE_ID_DELIMITER + row;
+	}
+
+	public static int tileIdToRow( String tileId )
+	{
+		String[] colAndRow = tileId.split( TILE_ID_DELIMITER );
+		return Integer.parseInt( colAndRow[1] );
+	}
+
+	public static int tileIdToColumn( String tileId )
+	{
+		String[] colAndRow = tileId.split( TILE_ID_DELIMITER );
+		return Integer.parseInt( colAndRow[0] );
 	}
 
 	public void setValid( boolean valid )
@@ -99,7 +118,7 @@ public class Tile implements Cloneable
 		return valid;
 	}
 
-	public int getTileId( )
+	public String getTileId( )
 	{
 		return tileId;
 	}

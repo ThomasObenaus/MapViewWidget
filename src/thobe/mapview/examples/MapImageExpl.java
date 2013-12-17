@@ -35,7 +35,7 @@ public class MapImageExpl extends JFrame
 	{
 
 		this.setTitle( "MapImage \t\t[" + MapViewInfo.getLibName( ) + " " + MapViewInfo.getLibVersion( ) + "]" );
-		this.setSize( 1280, 980 );
+		this.setSize( 1100, 800 );
 		this.buildGUI( );
 		this.setDefaultCloseOperation( JFrame.EXIT_ON_CLOSE );
 
@@ -47,7 +47,7 @@ public class MapImageExpl extends JFrame
 			{
 				if ( mapImage != null )
 				{
-					mapImage.setViewPort( getWidth( ), getHeight( ) );
+					//mapImage.setViewPort( getWidth( ), getHeight( ) );
 				}
 			}
 		} );
@@ -56,7 +56,7 @@ public class MapImageExpl extends JFrame
 	private void buildGUI( )
 	{
 		this.setLayout( new BorderLayout( 0, 0 ) );
-		this.mapImage = new MapImage( 800, 600, Log.LOG( ) );
+		this.mapImage = new MapImage( getWidth( ), getHeight( ), Log.LOG( ) );
 		this.add( this.mapImage, BorderLayout.CENTER );
 	}
 

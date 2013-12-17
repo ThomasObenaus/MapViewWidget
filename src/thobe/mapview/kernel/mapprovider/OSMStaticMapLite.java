@@ -31,7 +31,7 @@ public class OSMStaticMapLite extends OpenStreetMapURLBuilder
 		query.addParameter( "center", center.toString( ) );
 		query.addParameter( "maptype", mapType.toString( ) );
 		query.addParameter( "size", width + "x" + height );
-		//		query.addParameter( "markers", "color:red%7Clabel:S%7C53.0,5.0" );
+		query.addParameter( "markers", "color:red%%7Clabel:S%%7C51.476161,0.000595" );
 
 		return new URL( URLBase + query );
 	}

@@ -23,10 +23,10 @@ public interface TileLoaderListener
 		CANCELLED, ERROR;
 	};
 
-	public void onTileLoadRequestComplete( int tileId, Image image );
+	public void onTileLoadRequestComplete( String tileId, Image image );
 
-	public void onTileLoadRequestStarted( int tileId );
+	public void onTileLoadRequestStarted( String tileId );
 
-	public void onTileLoadRequestFailed( int tileId, FailReason reason, String cause );
+	public void onTileLoadRequestFailed( String tileId, FailReason reason, String cause );
 
 }
