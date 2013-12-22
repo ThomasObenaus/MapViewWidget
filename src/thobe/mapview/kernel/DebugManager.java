@@ -17,19 +17,22 @@ package thobe.mapview.kernel;
  */
 public class DebugManager
 {
-	private static boolean DEBUG_MAP_IMAGE;
-	
-	
+	private static boolean	MI_DEBUG;
+	private static boolean	MI_DRAW_VIEWPORTS;
+
 	static
 	{
-		DEBUG_MAP_IMAGE = true;	
+		MI_DEBUG = true;
+		MI_DRAW_VIEWPORTS = true;
 	}
-	
-	
-	public static boolean isDebugMapImage( )
+
+	public static boolean isMapImageDebug( )
 	{
-		return DEBUG_MAP_IMAGE;
+		return MI_DEBUG;
+	}
+
+	public static boolean isMapImageDrawViewPorts( )
+	{
+		return MI_DRAW_VIEWPORTS;
 	}
 }
-
-

@@ -24,7 +24,7 @@ public class Tile implements Cloneable
 	/**
 	 * Number of pixels for one tile
 	 */
-	public static final int		TILE_SIZE_PX		= 200;
+	public static final int		TILE_SIZE_PX		= 128;
 
 	public static final int		HALF_TILE_SIZE_PX	= TILE_SIZE_PX / 2;
 

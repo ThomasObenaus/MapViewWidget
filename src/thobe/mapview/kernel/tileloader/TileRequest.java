@@ -44,16 +44,9 @@ public class TileRequest implements Runnable
 	private Image				image;
 	private String				error;
 	private boolean				terminated;
-	private boolean				mapCenterTile;
 
 	public TileRequest( Logger logger, MapURLBuilder urlBuilder, String tileId, GeoCoord tileCenter, int zoom )
 	{
-		this( logger, urlBuilder, tileId, tileCenter, zoom, false );
-	}
-
-	public TileRequest( Logger logger, MapURLBuilder urlBuilder, String tileId, GeoCoord tileCenter, int zoom, boolean mapCenterTile )
-	{
-		this.mapCenterTile = mapCenterTile;
 		this.error = null;
 		this.image = null;
 		this.logger = logger;
@@ -85,18 +78,7 @@ public class TileRequest implements Runnable
 
 				this.logger.fine( "Loading " + logPrefix( this.tileId ) + " (center=" + tileCenter.getFormatted( ) + ", size=" + Tile.TILE_SIZE_PX + "x" + Tile.TILE_SIZE_PX + ", zoom=" + this.zoom + ")" );
 
-				URL url = null;
-
-				if ( mapCenterTile )
-				{
-					List<Marker> centerMarker = new ArrayList<>( );
-					centerMarker.add( new Marker( this.tileCenter, 'C', Color.blue ) );
-					url = this.urlBuilder.buildURL( tileCenter, this.zoom, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX, centerMarker );
-				}
-				else
-				{
-					url = this.urlBuilder.buildURL( tileCenter, this.zoom, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
-				}
+				URL url = this.urlBuilder.buildURL( tileCenter, this.zoom, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
 
 				this.logger.info( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
 				URLConnection con = url.openConnection( );

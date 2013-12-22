@@ -57,7 +57,8 @@ import thobe.mapview.kernel.tilesystem.Tile;
 @SuppressWarnings ( "serial")
 public class MapImage extends Canvas implements TileLoaderListener
 {
-	private static boolean				DBG						= DebugManager.isDebugMapImage( );
+	private static boolean				DBG;
+	private static boolean				DRAW_VIEWPORTS;
 	private static final Color			DEBUG_COLOR				= Color.BLACK;
 	private static final Stroke			DEBUG_STROKE			= new BasicStroke( 3 );
 	private static final Font			DEBUG_FONT				= new Font( "Arial", Font.BOLD, 12 );
@@ -78,22 +79,53 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 */
 	private static final int			BORDER_SIZE				= -Tile.TILE_SIZE_PX;
 
-	private static final int			DEBUG_BORDER_SIZE		= 300;									//BORDER_SIZE;
+	private static final int			DEBUG_BORDER_SIZE		= 300;
 	private static final int			DEBUG_NUM_BORDER_TILES	= NUM_BORDER_TILES;
 
+	/**
+	 * Map of {@link Tile}s <id of the {@link Tile},{@link Tile}>. The {@link Tile}s image-coordinates (x,y)
+	 * are screen coordinates.
+	 */
 	private Map<String, Tile>			viewPortTiles;
 
+	/**
+	 * The provider used to get the {@link Tile}s/ images.
+	 */
 	private MapProvider					mapProvider;
+
+	/**
+	 * The {@link GeoCoord} representing the center of the map.
+	 */
 	private GeoCoord					mapCenter;
-	private GeoCoord					nextMapCenter;
-	GeoCoord							from;
+
+	/**
+	 * Current zoom-level.
+	 */
 	private int							zoomLevel;
+
+	/**
+	 * The logger.
+	 */
 	private Logger						log;
+
+	/**
+	 * Instance used to create the urls for requesting the images from the map-provider.
+	 */
 	private MapURLBuilder				urlBuilder;
+
+	/**
+	 * The thread that is responsible to load the images/ {@link Tile}s from the map-provider.
+	 */
 	private TileLoader					tileLoader;
 
-	private SynchronousQueue<Boolean>	repaintQueue;
+	/**
+	 * A flag used for synchronization between the main- and the repainting-thread.
+	 */
+	private SynchronousQueue<Boolean>	repaintFlag;
 
+	/**
+	 * The repaint-thread.
+	 */
 	private Repainter					repaintThread;
 
 	/**
@@ -101,13 +133,39 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 */
 	private AffineTransform				initialCam;
 
-	protected AffineTransform			camera					= new AffineTransform( );				/* the camera transform that defines the view window into the scene */
-	private int							state					= 0;									/* current state: 0->normal, 1->panning, 2->zooming */
-	private int							mx, my;														/* mouse coordinates where button was pressed down during a dragging action */
-	private AffineTransform				saved_cam;														/* camera transform when the mouse was pressed down */
+	/**
+	 * The camera transform that defines the view window into the scene.
+	 */
+	protected AffineTransform			camera;
 
+	/**
+	 * Current state of the cameras ({@link CameraState#NORMAL}, {@link CameraState#PAN}, {@link CameraState#ZOOM})
+	 */
+	private CameraState					cameraState;
+
+	/**
+	 * Mouse coordinates where button was pressed down during a dragging action.
+	 */
+	private int							mx, my;
+
+	/**
+	 * Camera transform when the mouse was pressed down.
+	 */
+	private AffineTransform				saved_cam;
+
+	/**
+	 * The relevant view-port.
+	 */
 	private Rectangle2D					viewPort;
+
+	/**
+	 * The first extended (inner) view-port. This is the boundary at which new {@link Tile}s will be added if they are partly inside.
+	 */
 	private Rectangle2D					innerExtViewPort;
+
+	/**
+	 * The second extended (outer) view-port. This is the boundary at which {@link Tile}s will be deleted if they are fully outside.
+	 */
 	private Rectangle2D					outerExtViewPort;
 
 	/**
@@ -121,10 +179,23 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 */
 	private Tile						mapCenterTile;
 
+	/**
+	 * Ctor
+	 * @param viewPortWidth
+	 * @param viewPortHeight
+	 * @param mapCenter
+	 * @param zoomLevel
+	 * @param mapProvider
+	 * @param logger
+	 */
 	public MapImage( int viewPortWidth, int viewPortHeight, GeoCoord mapCenter, int zoomLevel, MapProvider mapProvider, Logger logger )
 	{
+		DBG = DebugManager.isMapImageDebug( );
+		DRAW_VIEWPORTS = DebugManager.isMapImageDrawViewPorts( );
+		this.cameraState = CameraState.NORMAL;
+		this.camera = new AffineTransform( );
 		this.mapCenterTile = null;
-		this.repaintQueue = new SynchronousQueue<>( );
+		this.repaintFlag = new SynchronousQueue<>( );
 		this.repaintThread = new Repainter( );
 		this.repaintThread.start( );
 
@@ -134,7 +205,6 @@ public class MapImage extends Canvas implements TileLoaderListener
 		this.tileLoader.start( );
 
 		this.mapCenter = mapCenter;
-		this.nextMapCenter = this.mapCenter;
 		this.zoomLevel = zoomLevel;
 		this.mapProvider = mapProvider;
 		this.viewPortTiles = new HashMap<>( );
@@ -176,31 +246,30 @@ public class MapImage extends Canvas implements TileLoaderListener
 			public void mousePressed( MouseEvent e )
 			{
 
-				if ( state == 0 )
+				if ( cameraState == CameraState.NORMAL )
 				{
 					/* click right mouse button --> enter pan-mode */
 					if ( e.getButton( ) == MouseEvent.BUTTON3 )
 					{
-						state = 1;
+						cameraState = CameraState.PAN;
 						mx = e.getX( );
 						my = e.getY( );
 						saved_cam = new AffineTransform( camera );
-						from = posToGeoCoord( new Point2D.Double( mx, my ) );
 					}
 
 					/* click middle mouse button + press ctrl --> enter zoom-mode */
 					if ( ( e.isControlDown( ) ) && ( e.getButton( ) == MouseEvent.BUTTON2 ) )
 					{
-						state = 2;
+						cameraState = CameraState.ZOOM;
 						mx = e.getX( );
 						my = e.getY( );
 						saved_cam = new AffineTransform( camera );
 					}
 				}
-				if ( state != 0 )
+				if ( cameraState != CameraState.NORMAL )
 					setRenderQuality( RENDER_QUALITY_LOW );
 
-				if ( state != 1 && state != 2 )
+				if ( cameraState != CameraState.PAN && cameraState != CameraState.ZOOM )
 				{
 					// mouse pressed
 				}
@@ -211,14 +280,14 @@ public class MapImage extends Canvas implements TileLoaderListener
 				/* middle mouse button released */
 				if ( e.getButton( ) == MouseEvent.BUTTON2 || e.getButton( ) == MouseEvent.BUTTON3 )
 				{
-					if ( ( state == 1 ) || ( state == 2 ) )
+					if ( ( cameraState == CameraState.PAN ) || ( cameraState == CameraState.ZOOM ) )
 					{
 						//MapImage.this.mapCenter = nextMapCenter;
-						state = 0;
+						cameraState = CameraState.NORMAL;
 					}
 				}
 
-				if ( state == 0 )
+				if ( cameraState == CameraState.NORMAL )
 					setRenderQuality( RENDER_QUALITY_HIGH );
 				repaint( );
 			}
@@ -230,35 +299,23 @@ public class MapImage extends Canvas implements TileLoaderListener
 			{
 
 				/*  if in pan mode, translate according to mouse movement */
-				if ( state == 1 )
+				if ( cameraState == CameraState.PAN )
 				{
-
 					double newX = ( e.getX( ) - mx ) / camera.getScaleX( );
 					double newY = ( e.getY( ) - my ) / camera.getScaleY( );
 
 					camera = new AffineTransform( saved_cam );
 					camera.translate( newX, newY );
 
-					int dX = ( int ) ( mx - newX );
-					int dY = ( int ) ( my - newY );
-					GeoCoord delta = MercatorProjection.computeDeltaGeoCoord( MapImage.this.mapCenter, MapImage.this.zoomLevel, dX, dY );
-
-					//nextMapCenter = MapImage.this.mapCenter.add( delta );
-					//System.out.println( MapImage.this.mapCenter + " <" + delta.getFormatted( ) + "> " + nextMapCenter.getFormatted( ) );
-
-					//					if ( ( Math.abs( dX ) > getTileBorderSize( ) ) || Math.abs( dY ) > getTileBorderSize( ) )
-					//					{
-					//						MapImage.this.mapCenter = nextMapCenter;
-					//						updateImage( );
-					//					}
+					// update view/ tiles
 					updateTileGrid( );
 					createTileRequests( );
 					repaint( );
-				}
+				}// if ( state == 1 ).
 
 				/* in zoom mode, zoom in if mouse moved up and zoom out if mouse moved down with pivot
 				 point at the window coordinates the mouse was initially pressed */
-				if ( state == 2 )
+				if ( cameraState == CameraState.ZOOM )
 				{
 					camera = new AffineTransform( saved_cam );
 
@@ -284,7 +341,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 					repaint( );
 				}
 
-				if ( state != 1 && state != 2 )
+				if ( cameraState != CameraState.ZOOM && cameraState != CameraState.PAN )
 				{
 					repaint( );
 				}
@@ -293,22 +350,28 @@ public class MapImage extends Canvas implements TileLoaderListener
 			@Override
 			public void mouseMoved( MouseEvent e )
 			{
-				//System.out.println( "Screen=" + e.getPoint( ) + " --> viewPort="+ screenPosToViewPortPos( e.getPoint( ) )  );
+				System.out.println( "Screen=" + e.getPoint( ) + " --> viewPort=" + screenPosToViewPortPos( e.getPoint( ) ) + " --> geoCoord=" + posToGeoCoord( e.getPoint( ) ) );
 			}
 		} );
 	}
 
+	/**
+	 * Ctor
+	 * @param viewPortWidth
+	 * @param viewPortHeight
+	 * @param logger
+	 */
 	public MapImage( int viewPortWidth, int viewPortHeight, Logger logger )
 	{
-		this( viewPortWidth, viewPortHeight, new GeoCoord( 50, 10 ), 12, MapProvider.OSMStaticMapLite, logger );
+		this( viewPortWidth, viewPortHeight, new GeoCoord( ), 12, MapProvider.OSMStaticMapLite, logger );
 	}
 
 	/**
-	 * Converts a given position on the widget to a position on the map-image.
+	 * Converts a given on the map-image (view-port) into a position on the screen.
 	 * @param pos
 	 * @return
 	 */
-	public Point2D screenPosToViewPortPos_Old( Point2D pos )
+	public Point2D viewPortPosToScreenPos( Point2D pos )
 	{
 		Point2D result = null;
 		try
@@ -337,15 +400,24 @@ public class MapImage extends Canvas implements TileLoaderListener
 	/**
 	 * Converts the given position into a {@link GeoCoord}.
 	 * @param position
-	 * @return - null if the conversion does fail
+	 * @return - null if the conversion fails
 	 */
 	public GeoCoord posToGeoCoord( Point2D position )
 	{
 		// convert position to a view-position
-		Point2D vpPos = this.screenPosToViewPortPos_Old( position );
+		Point2D vpPos = this.screenPosToViewPortPos( position );
 
-		if ( vpPos.getX( ) < 0 || vpPos.getY( ) < 0 )
+		System.out.println( vpPos );
+
+		Tile topleft = this.getTopLeftTile( );
+		if ( topleft == null )
 			return null;
+		
+		int x0 = topleft.getX( );
+		int y0 = topleft.getY( );
+		
+		
+		
 
 		// find the tile under cursor
 		int numTileColumns = this.getNumTileColumns( );
@@ -399,23 +471,9 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	/**
-	 * Finds the {@link Tile} with the given column, row. Returns null if this {@link Tile} does not exist.
-	 * @param column
-	 * @param row
+	 * Returns the top-left {@link Tile} of the tile-grid.
 	 * @return
 	 */
-	private Tile getTile( int column, int row )
-	{
-		for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
-		{
-			Tile tile = entry.getValue( );
-			if ( ( tile.getColumn( ) == column ) && ( tile.getRow( ) == row ) )
-				return tile;
-		}
-
-		return null;
-	}
-
 	private Tile getTopLeftTile( )
 	{
 		int minColumn = Integer.MAX_VALUE;
@@ -429,8 +487,9 @@ public class MapImage extends Canvas implements TileLoaderListener
 				minColumn = tmpTile.getColumn( );
 				minRow = tmpTile.getRow( );
 				tile = tmpTile;
-			}
-		}
+			}// if ( ( tmpTile.getColumn( ) <= minColumn ) && ( tmpTile.getRow( ) <= minRow ) ).
+		}// for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) ).
+
 		return tile;
 	}
 
@@ -487,20 +546,21 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int numberOfVisibleColumns = missingColumnsLeft + this.getNumTileColumns( ) + column0;
 		int numberOfVisibleRows = missingRowsTop + this.getNumTileRows( ) + row0;
 
-		// compute column and row of the Tile containing the center of the map
-		int columnOfMapCenter = 0;
-		int rowOfMapCenter = 0;
-		if ( this.mapCenterTile != null )
+		// compute column and row of the Tile containing the center of the map.
+		// Compute the column/row regarding the number of columns/rows.
+		int columnOfMapCenter = ( this.getNumTileColumns( ) / 2 ) + column0; //1->0, 2->1,3->2, ....
+		int rowOfMapCenter = ( this.getNumTileRows( ) / 2 ) + row0; //1->0, 2->1,3->2, ....
+
+		// check if an update of the map-center is necessary
+		Tile newPotentialMapCenterTile = this.viewPortTiles.get( Tile.colRowToTileId( columnOfMapCenter, rowOfMapCenter ) );
+		if ( ( newPotentialMapCenterTile != null ) && ( newPotentialMapCenterTile != this.mapCenterTile ) )
 		{
-			columnOfMapCenter = this.mapCenterTile.getColumn( );
-			rowOfMapCenter = this.mapCenterTile.getRow( );
-		}// if ( this.containsMapCenter != null ).
-		else
-		{
-			// no tile available --> compute the column/row regarding the number of columns/rows
-			columnOfMapCenter = this.getNumTileColumns( ) / 2; //1->0, 2->1,3->2, ....
-			rowOfMapCenter = this.getNumTileRows( ) / 2; //1->0, 2->1,3->2, ....
-		}// if ( this.containsMapCenter != null ) ... else ...
+			this.mapCenterTile = newPotentialMapCenterTile;
+			this.mapCenter = this.mapCenterTile.getCenter( );
+
+			if ( DBG )
+				log.info( "Tile [" + this.mapCenterTile.getTileId( ) + "] Is the new Tile containing the map-center (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
+		}// if ( ( newPotentialMapCenterTile != null ) && ( newPotentialMapCenterTile != this.mapCenterTile ) ).
 
 		// Compute the delta/difference if a GeoCoordinate will be moved by n pixel (size of one tile).
 		// This value is used to compute the GeoCoordinates of the Tiles surrounding the Tile that contains the map-center.
@@ -625,7 +685,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 			Tile viewPortTile = entry.getValue( );
 			if ( !viewPortTile.isValid( ) )
 			{
-				tileRequests.add( new TileRequest( this.log, this.urlBuilder, viewPortTile.getTileId( ), viewPortTile.getCenter( ), viewPortTile.getZoomLevel( ), viewPortTile == this.mapCenterTile ) );
+				tileRequests.add( new TileRequest( this.log, this.urlBuilder, viewPortTile.getTileId( ), viewPortTile.getCenter( ), viewPortTile.getZoomLevel( ) ) );
 
 				if ( DBG )
 					log.info( "Tile [" + viewPortTile.getTileId( ) + "] Request started: geoCoord=" + viewPortTile.getCenter( ).getFormatted( ) );
@@ -670,12 +730,15 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 			if ( DBG )
 			{
-				gr.fillRect( ( int ) this.viewPort.getCenterX( ) - 5, ( int ) this.viewPort.getCenterY( ) - 5, 10, 10 );
+				if ( viewPortTile.getTileId( ).equals( this.mapCenterTile.getTileId( ) ) )
+					gr.setColor( Color.RED );
+				else gr.setColor( DEBUG_COLOR );
 
-				gr.setColor( DEBUG_COLOR );
 				gr.drawRect( posX, posY, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
 				gr.drawLine( ( posX + Tile.HALF_TILE_SIZE_PX ) - 20, posY + Tile.HALF_TILE_SIZE_PX, ( posX + Tile.HALF_TILE_SIZE_PX ) + 20, posY + Tile.HALF_TILE_SIZE_PX );
 				gr.drawLine( posX + Tile.HALF_TILE_SIZE_PX, ( posY + Tile.HALF_TILE_SIZE_PX ), posX + Tile.HALF_TILE_SIZE_PX, ( posY + Tile.HALF_TILE_SIZE_PX ) + 20 );
+
+				gr.setColor( DEBUG_COLOR );
 
 				gr.setFont( DEBUG_FONT );
 				gr.drawString( "ImgCoord=(" + viewPortTile.getX( ) + "," + viewPortTile.getY( ) + ")", posX + 10, posY + 20 );
@@ -685,7 +748,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 				gr.setFont( DEBUG_FONT_BIG );
 				gr.drawString( viewPortTile.getTileId( ) + "", Tile.HALF_TILE_SIZE_PX + posX, Tile.HALF_TILE_SIZE_PX + posY );
 			}
-		}
+		}// for ( Tile viewPortTile : tmpTiles ).
 	}
 
 	@Override
@@ -703,15 +766,19 @@ public class MapImage extends Canvas implements TileLoaderListener
 				// clear the screen
 				gr.clearRect( 0, 0, this.getWidth( ), this.getHeight( ) );
 
+				// store transform
 				AffineTransform m = gr.getTransform( );
+
+				// apply camera 
 				gr.transform( camera );
 
 				// call internal paint-method
 				paint( gr );
 
+				// reset transform
 				gr.setTransform( m );
 
-				if ( DBG )
+				if ( DRAW_VIEWPORTS )
 				{
 					// draw view port
 					gr.setStroke( DEBUG_STROKE );
@@ -747,13 +814,15 @@ public class MapImage extends Canvas implements TileLoaderListener
 					gr.drawRect( x0, y0, width, height );
 					gr.drawString( "OuterExtViewPort: Pos=(" + x0 + "," + y0 + "), Size=(" + width + "," + height + ")", 10, 80 );
 					gr.drawString( "MapCenter: (" + this.mapCenter.getFormatted( ), 10, 100 );
-				}
+
+				}// if ( DRAW_VIEWPORTS ).
 				gr.dispose( );
-			}
+
+			}// do.
 			while ( strategy.contentsLost( ) || strategy.contentsRestored( ) );
 
 			strategy.show( );
-		}
+		}// if ( strategy != null ).
 	}
 
 	@Override
@@ -860,7 +929,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 				viewPortTile.setValid( true );
 				try
 				{
-					this.repaintQueue.put( true );
+					this.repaintFlag.put( true );
 				}
 				catch ( InterruptedException e )
 				{
@@ -918,7 +987,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 				try
 				{
-					Boolean doRepaint = repaintQueue.take( );
+					Boolean doRepaint = repaintFlag.take( );
 					if ( doRepaint.booleanValue( ) )
 					{
 						repaint( );
@@ -931,5 +1000,14 @@ public class MapImage extends Canvas implements TileLoaderListener
 				}
 			}
 		}
+	}
+
+	/**
+	 * Enum, representing the state of the camera.
+	 * @author Thomas Obenaus
+	 */
+	private enum CameraState
+	{
+		NORMAL, PAN, ZOOM;
 	}
 }
