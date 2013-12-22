@@ -29,7 +29,6 @@ import thobe.tools.log.Log;
 public class MapImageExpl extends JFrame
 {
 	private MapImage	mapImage;
-	private Log			log;
 
 	public MapImageExpl( )
 	{

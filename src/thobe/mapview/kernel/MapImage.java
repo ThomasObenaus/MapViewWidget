@@ -57,6 +57,7 @@ import thobe.mapview.kernel.tilesystem.Tile;
 @SuppressWarnings ( "serial")
 public class MapImage extends Canvas implements TileLoaderListener
 {
+	private static boolean				DBG						= DebugManager.isDebugMapImage( );
 	private static final Color			DEBUG_COLOR				= Color.BLACK;
 	private static final Stroke			DEBUG_STROKE			= new BasicStroke( 3 );
 	private static final Font			DEBUG_FONT				= new Font( "Arial", Font.BOLD, 12 );
@@ -79,8 +80,6 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 	private static final int			DEBUG_BORDER_SIZE		= 300;									//BORDER_SIZE;
 	private static final int			DEBUG_NUM_BORDER_TILES	= NUM_BORDER_TILES;
-
-	private static boolean				debug;
 
 	private Map<String, Tile>			viewPortTiles;
 
@@ -112,12 +111,19 @@ public class MapImage extends Canvas implements TileLoaderListener
 	private Rectangle2D					outerExtViewPort;
 
 	/**
-	 * Bounds of the currently visible {@link Tile}s in outer view-port coordinates.
+	 * Bounds of the currently visible {@link Tile}s in (outerExt)view-port coordinates.
+	 * Tiles itself are given in screen coordinates but will be drawn in view (outerExt)view-port coordinates (after applying the camera).
 	 */
 	private Rectangle2D					tileGridBounds;
 
+	/**
+	 * The {@link Tile} containing the center of the map.
+	 */
+	private Tile						mapCenterTile;
+
 	public MapImage( int viewPortWidth, int viewPortHeight, GeoCoord mapCenter, int zoomLevel, MapProvider mapProvider, Logger logger )
 	{
+		this.mapCenterTile = null;
 		this.repaintQueue = new SynchronousQueue<>( );
 		this.repaintThread = new Repainter( );
 		this.repaintThread.start( );
@@ -207,7 +213,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 				{
 					if ( ( state == 1 ) || ( state == 2 ) )
 					{
-						MapImage.this.mapCenter = nextMapCenter;
+						//MapImage.this.mapCenter = nextMapCenter;
 						state = 0;
 					}
 				}
@@ -237,7 +243,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 					int dY = ( int ) ( my - newY );
 					GeoCoord delta = MercatorProjection.computeDeltaGeoCoord( MapImage.this.mapCenter, MapImage.this.zoomLevel, dX, dY );
 
-					nextMapCenter = MapImage.this.mapCenter.add( delta );
+					//nextMapCenter = MapImage.this.mapCenter.add( delta );
 					//System.out.println( MapImage.this.mapCenter + " <" + delta.getFormatted( ) + "> " + nextMapCenter.getFormatted( ) );
 
 					//					if ( ( Math.abs( dX ) > getTileBorderSize( ) ) || Math.abs( dY ) > getTileBorderSize( ) )
@@ -245,8 +251,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 					//						MapImage.this.mapCenter = nextMapCenter;
 					//						updateImage( );
 					//					}
-					buildImageTiles( );
-					updateImage( );
+					updateTileGrid( );
+					createTileRequests( );
 					repaint( );
 				}
 
@@ -287,16 +293,14 @@ public class MapImage extends Canvas implements TileLoaderListener
 			@Override
 			public void mouseMoved( MouseEvent e )
 			{
-				//				System.out.println( posToGeoCoord( e.getPoint( ) ) + " " + e.getPoint( ) );
-
+				//System.out.println( "Screen=" + e.getPoint( ) + " --> viewPort="+ screenPosToViewPortPos( e.getPoint( ) )  );
 			}
 		} );
 	}
 
 	public MapImage( int viewPortWidth, int viewPortHeight, Logger logger )
 	{
-		this( viewPortWidth, viewPortHeight, new GeoCoord( 51.476161, 0.000595 ), 12, MapProvider.OSMStaticMapLite, logger );
-		//		this( viewPortWidth, viewPortHeight, new GeoCoord( 51.053631, 13.740810 ), 12, MapProvider.OSMStaticMapLite, logger );
+		this( viewPortWidth, viewPortHeight, new GeoCoord( 50, 10 ), 12, MapProvider.OSMStaticMapLite, logger );
 	}
 
 	/**
@@ -304,7 +308,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 * @param pos
 	 * @return
 	 */
-	public Point2D screenPosToViewPortPos( Point2D pos )
+	public Point2D screenPosToViewPortPos_Old( Point2D pos )
 	{
 		Point2D result = null;
 		try
@@ -318,10 +322,15 @@ public class MapImage extends Canvas implements TileLoaderListener
 		return result;
 	}
 
-	public Point2D viewPortPosToScreenPos( Point2D pos )
+	/**
+	 * Converts a position on screen into a position on the view-port (might be translated/scaled).
+	 * @param posOnScreen
+	 * @return
+	 */
+	public Point2D screenPosToViewPortPos( Point2D posOnScreen )
 	{
 		Point2D result = null;
-		result = camera.transform( new Point2D.Double( pos.getX( ), pos.getY( ) ), result );
+		result = camera.transform( new Point2D.Double( posOnScreen.getX( ), posOnScreen.getY( ) ), result );
 		return result;
 	}
 
@@ -333,7 +342,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	public GeoCoord posToGeoCoord( Point2D position )
 	{
 		// convert position to a view-position
-		Point2D vpPos = this.screenPosToViewPortPos( position );
+		Point2D vpPos = this.screenPosToViewPortPos_Old( position );
 
 		if ( vpPos.getX( ) < 0 || vpPos.getY( ) < 0 )
 			return null;
@@ -385,8 +394,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int outerExtViewportSize = innerExtViewportSize * 2;
 		this.outerExtViewPort = new Rectangle2D.Double( this.viewPort.getX( ) - outerExtViewportSize, this.viewPort.getY( ) - outerExtViewportSize, this.viewPort.getWidth( ) + ( 2 * outerExtViewportSize ), this.viewPort.getHeight( ) + ( 2 * outerExtViewportSize ) );
 
-		this.buildImageTiles( );
-		this.updateImage( );
+		this.updateTileGrid( );
+		this.createTileRequests( );
 	}
 
 	/**
@@ -440,7 +449,11 @@ public class MapImage extends Canvas implements TileLoaderListener
 		return new Rectangle2D.Double( topleft.getX( ), topleft.getY( ), toTransform.getWidth( ), toTransform.getHeight( ) );
 	}
 
-	private void buildImageTiles( )
+	/**
+	 * This internal method computes/creates the Tiles which are visible on the viewport and computes the {@link GeoCoord}s used for this
+	 * {@link Tile}s.
+	 */
+	private void updateTileGrid( )
 	{
 		// update the bounds of visible tiles
 		this.updateTileGridBounds( );
@@ -456,7 +469,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 		if ( missingRowsTop < 0 )
 			missingRowsTop = 0;
 
-		// compute the top-left column/row
+		// compute the top-left column/row [col0,row0]
 		int column0 = 0;
 		int row0 = 0;
 		Tile topLeft = this.getTopLeftTile( );
@@ -464,46 +477,90 @@ public class MapImage extends Canvas implements TileLoaderListener
 		{
 			column0 = topLeft.getColumn( ) - missingColumnsLeft;
 			row0 = topLeft.getRow( ) - missingRowsTop;
-		}
+		}// if ( topLeft != null ).
 
-		// compute the top-left corner
+		// compute the top-left corner P(x0,y0)
 		int x0 = ( int ) ( column0 * Tile.TILE_SIZE_PX + this.outerExtViewPort.getX( ) );
 		int y0 = ( int ) ( row0 * Tile.TILE_SIZE_PX + this.outerExtViewPort.getY( ) );
 
 		// compute how many columns/rows are visible
-		int numVPTileColumns = missingColumnsLeft + this.getNumTileColumns( ) + column0;
-		int numVPTileRows = missingRowsTop + this.getNumTileRows( ) + row0;
+		int numberOfVisibleColumns = missingColumnsLeft + this.getNumTileColumns( ) + column0;
+		int numberOfVisibleRows = missingRowsTop + this.getNumTileRows( ) + row0;
 
-		// compute the delta/difference if the current geocoord will be moved by n pixel (half size of one tile)		
-		GeoCoord delta = MercatorProjection.computeDeltaGeoCoord( mapCenter, this.zoomLevel, Tile.HALF_TILE_SIZE_PX );
-		GeoCoord topLeftGeoCoord = new GeoCoord( mapCenter.getLatitude( ) - (  (numVPTileRows/2d) * delta.getLatitude( ) ), mapCenter.getLongitude( ) - ( (numVPTileColumns/2d)* delta.getLongitude( ) ) );
+		// compute column and row of the Tile containing the center of the map
+		int columnOfMapCenter = 0;
+		int rowOfMapCenter = 0;
+		if ( this.mapCenterTile != null )
+		{
+			columnOfMapCenter = this.mapCenterTile.getColumn( );
+			rowOfMapCenter = this.mapCenterTile.getRow( );
+		}// if ( this.containsMapCenter != null ).
+		else
+		{
+			// no tile available --> compute the column/row regarding the number of columns/rows
+			columnOfMapCenter = this.getNumTileColumns( ) / 2; //1->0, 2->1,3->2, ....
+			rowOfMapCenter = this.getNumTileRows( ) / 2; //1->0, 2->1,3->2, ....
+		}// if ( this.containsMapCenter != null ) ... else ...
 
+		// Compute the delta/difference if a GeoCoordinate will be moved by n pixel (size of one tile).
+		// This value is used to compute the GeoCoordinates of the Tiles surrounding the Tile that contains the map-center.
+		// For example the GeoCoord for the Tile on the left side of the "map-center Tile" is
+		// GeoCoord left = ( mapCenter.lat,mapCenter.long + delta.long )
+		GeoCoord deltaTileSize = MercatorProjection.computeDeltaGeoCoord( mapCenter, this.zoomLevel, Tile.TILE_SIZE_PX );
+
+		// 1. Create Tiles that are missing (where not created yet but are visible on the map).
+		// 2. Update geo-coordinates and zoom-level of existing Tiles. 
 		int y = y0;
-		for ( int row = row0; row < numVPTileRows; row++ )
+		for ( int row = row0; row < numberOfVisibleRows; row++ )
 		{
 			int x = x0;
-			for ( int col = column0; col < numVPTileColumns; col++ )
+			for ( int column = column0; column < numberOfVisibleColumns; column++ )
 			{
-				String tileId = Tile.colRowToTileId( col, row );
+				String tileId = Tile.colRowToTileId( column, row );
 				Tile tile = this.viewPortTiles.get( tileId );
 
+				// tile does not exist yet --> create it
 				if ( tile == null )
 				{
 					tile = new Tile( tileId, x, y );
 					this.viewPortTiles.put( tileId, tile );
-					if ( debug )
-						log.fine( "Tile [" + tile.getTileId( ) + "] added: col=" + col + ", row=" + row + ")" );
-				}
-				// update the geo-coordinate matching the position within the tile-grid
-				double latitude = topLeftGeoCoord.getLatitude( ) + ( delta.getLatitude( ) * row );
-				double longitude = topLeftGeoCoord.getLongitude( ) + (  delta.getLongitude( ) * col );
+					if ( DBG )
+						log.info( "Tile [" + tile.getTileId( ) + "] created and added." );
+				}// if ( tile == null ).
+
+				// tile containing the map-center found
+				if ( ( column == columnOfMapCenter ) && ( row == rowOfMapCenter ) )
+				{
+					this.mapCenterTile = tile;
+					if ( DBG )
+						log.info( "Tile [" + tile.getTileId( ) + "] contains the center of the Map (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
+				}// if ( ( col == columnOfMapCenter ) && ( row == rowOfMapCenter ) ).
+
+				// Determine the distance (number of columns/rows) of this Tile to the Tile containing the map-center.
+				int columnDistance = column - columnOfMapCenter;
+				int rowDistance = row - rowOfMapCenter;
+
+				// Compute the GeoCoordinate of this Tile using the computed distance to the "map-center Tile" and the previously
+				// computed "deltaTileSize". 
+				// The latitude of the new Tile is: tile.lat = mapCenter.lat - (delta.lat*rowDist)
+				// We have to subtract the computed delta because the latitude runs from north to south when its increased (e.g. 50,10 is north of 51,10 )
+				// and the y of image-coordinates runs from south to north on increasing it.  
+				double latitude = mapCenter.getLatitude( ) - ( deltaTileSize.getLatitude( ) * rowDistance );
+				// The longitude of the new Tile is: tile.lon = mapCenter.lon + (delta.lon*colDist)
+				// We can simply add the computed delta-distance. The longitude runs from west to east as well as the x of the image-coordinate.
+				double longitude = mapCenter.getLongitude( ) + ( deltaTileSize.getLongitude( ) * columnDistance );
+
+				// Apply computed GeoCoord and zoom-level 
 				tile.setCenter( new GeoCoord( latitude, longitude ) );
 				tile.setZoomLevel( zoomLevel );
-				
+
+				// next column (update x-coordinate)
 				x += Tile.TILE_SIZE_PX;
-			}
+			}// for ( int col = column0; col < numberOfVisibleColumns; col++ ).
+
+			// next row (update y-coordinate)
 			y += Tile.TILE_SIZE_PX;
-		}
+		}// for ( int row = row0; row < numberOfVisibleRows; row++ ).
 
 		// remove tiles fully outside of the outer extended view-port
 		List<Tile> toRemove = new ArrayList<Tile>( );
@@ -523,13 +580,16 @@ public class MapImage extends Canvas implements TileLoaderListener
 		}
 	}
 
+	/**
+	 * This method computes/updates the bounds (bounding-box containing all visible {@link Tile}s) of all visible {@link Tile}s.
+	 */
 	private void updateTileGridBounds( )
 	{
 		// no tiles --> bounds are [0,0,0,0]
 		if ( this.viewPortTiles.isEmpty( ) )
 		{
 			this.tileGridBounds.setRect( 0, 0, 0, 0 );
-		}
+		}// if ( this.viewPortTiles.isEmpty( ) ).
 		else
 		{
 			int minX = Integer.MAX_VALUE;
@@ -546,55 +606,37 @@ public class MapImage extends Canvas implements TileLoaderListener
 				maxY = max( maxY, tile.getY( ) );
 			}
 
-			Point2D upperLeftCorner = viewPortPosToScreenPos( new Point2D.Double( minX, minY ) );
+			// Convert the coordinates of the upper- and leftmost Tile (given in screen coordinates) to view-port coordinates. 
+			Point2D upperLeftCorner = screenPosToViewPortPos( new Point2D.Double( minX, minY ) );
 			double width = ( maxX - minX ) + Tile.TILE_SIZE_PX;
 			double height = ( maxY - minY ) + Tile.TILE_SIZE_PX;
 			this.tileGridBounds.setRect( upperLeftCorner.getX( ), upperLeftCorner.getY( ), width, height );
-		}
+		}// if ( this.viewPortTiles.isEmpty( ) ) ... else ...
 	}
 
-	private void updateImage( )
+	/**
+	 * This method creates a new {@link TileRequest} for each {@link Tile} whose content is not valid.
+	 */
+	private void createTileRequests( )
 	{
-
-		// determine number of tiles needed for viewport
-		int numVPTileColumns = this.getNumTileColumns( );
-		int numVPTileRows = this.getNumTileRows( );
-
-		// compute the delta/difference if the current geocoord will be moved by n pixel (half size of one tile)		
-		GeoCoord delta = MercatorProjection.computeDeltaGeoCoord( mapCenter, this.zoomLevel, Tile.HALF_TILE_SIZE_PX );
-
-		// compute top-left geo-coord
-		//GeoCoord topLeft = new GeoCoord( mapCenter.getLatitude( ) - ( ( numVPTileColumns - 1 ) * delta.getLatitude( ) ), mapCenter.getLongitude( ) - ( ( numVPTileRows - 1 ) * delta.getLongitude( ) ) );
-		GeoCoord topLeft = new GeoCoord( mapCenter.getLatitude( ), mapCenter.getLongitude( ) );
-
 		List<TileRequest> tileRequests = new ArrayList<>( );
 		for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
 		{
 			Tile viewPortTile = entry.getValue( );
-
-			int col = viewPortTile.getColumn( );
-			int row = viewPortTile.getRow( );
-
-			// update the geo-coordinate matching the position within the tile-grid
-			double latitude = topLeft.getLatitude( ) - ( 2 * delta.getLatitude( ) * row );
-			double longitude = topLeft.getLongitude( ) + ( 2 * delta.getLongitude( ) * col );
-
 			if ( !viewPortTile.isValid( ) )
 			{
-//				viewPortTile.setCenter( new GeoCoord( latitude, longitude ) );
-//				viewPortTile.setZoomLevel( zoomLevel );
-				tileRequests.add( new TileRequest( this.log, this.urlBuilder, viewPortTile.getTileId( ), viewPortTile.getCenter( ), viewPortTile.getZoomLevel( ) ) );
-				if ( debug )
-					log.info( "Tile [" + viewPortTile.getTileId( ) + "] updated and request added: geoCoord=(" + latitude + "," + longitude + ")" );
-			}
+				tileRequests.add( new TileRequest( this.log, this.urlBuilder, viewPortTile.getTileId( ), viewPortTile.getCenter( ), viewPortTile.getZoomLevel( ), viewPortTile == this.mapCenterTile ) );
 
-		}
+				if ( DBG )
+					log.info( "Tile [" + viewPortTile.getTileId( ) + "] Request started: geoCoord=" + viewPortTile.getCenter( ).getFormatted( ) );
+			}// if ( !viewPortTile.isValid( ) ).
+		}// for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) ).
 
 		if ( !tileRequests.isEmpty( ) )
 		{
 			this.tileLoader.cancelAllRequests( );
 			this.tileLoader.addTileRequestBlock( tileRequests );
-		}
+		}// if ( !tileRequests.isEmpty( ) ).
 	}
 
 	private int getNumTileColumns( )
@@ -626,7 +668,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 			int posY = viewPortTile.getY( );
 			gr.drawImage( viewPortTile.getImage( ), posX, posY, null );
 
-			if ( debug )
+			if ( DBG )
 			{
 				gr.fillRect( ( int ) this.viewPort.getCenterX( ) - 5, ( int ) this.viewPort.getCenterY( ) - 5, 10, 10 );
 
@@ -669,7 +711,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 				gr.setTransform( m );
 
-				if ( debug )
+				if ( DBG )
 				{
 					// draw view port
 					gr.setStroke( DEBUG_STROKE );
@@ -784,14 +826,14 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 */
 	public int getViewPortBorderExtend( )
 	{
-		if ( debug )
+		if ( DBG )
 			return DEBUG_NUM_BORDER_TILES * Tile.TILE_SIZE_PX;
 		return NUM_BORDER_TILES * Tile.TILE_SIZE_PX;
 	}
 
 	public int getBorderSize( )
 	{
-		if ( debug )
+		if ( DBG )
 			return DEBUG_BORDER_SIZE;
 		return BORDER_SIZE;
 	}
@@ -858,12 +900,12 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 	public static void setDebug( boolean debug )
 	{
-		MapImage.debug = debug;
+		MapImage.DBG = debug;
 	}
 
 	public static boolean isDebug( )
 	{
-		return debug;
+		return DBG;
 	}
 
 	private class Repainter extends Thread

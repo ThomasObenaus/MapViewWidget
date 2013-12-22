@@ -11,6 +11,7 @@ package thobe.mapview.kernel.mapprovider;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 
 import thobe.mapview.kernel.tilesystem.GeoCoord;
 
@@ -31,7 +32,6 @@ public class OSMStaticMapLite extends OpenStreetMapURLBuilder
 		query.addParameter( "center", center.toString( ) );
 		query.addParameter( "maptype", mapType.toString( ) );
 		query.addParameter( "size", width + "x" + height );
-		query.addParameter( "markers", "color:red%%7Clabel:S%%7C51.476161,0.000595" );
 
 		return new URL( URLBase + query );
 	}
@@ -41,4 +41,35 @@ public class OSMStaticMapLite extends OpenStreetMapURLBuilder
 	{
 		return MapProvider.OSMStaticMapLite;
 	}
+
+	@Override
+	public URL buildURL( GeoCoord center, int zoomLevel, int width, int height, MapType mapType, List<Marker> markers ) throws MalformedURLException
+	{
+		URLQuery query = new URLQuery( );
+		query.addParameter( "zoom", zoomLevel );
+		query.addParameter( "center", center.toString( ) );
+		query.addParameter( "maptype", mapType.toString( ) );
+		query.addParameter( "size", width + "x" + height );
+
+		if ( !markers.isEmpty( ) )
+		{
+			String markerStr = "";
+			int markersProcessed = 0;
+			for ( Marker marker : markers )
+			{
+				markerStr += "color:" + marker.getColorHex( ) + "%%7Clabel:" + marker.getLabel( ) + "%%7C" + marker.getPosition( );
+				markersProcessed++;
+
+				// add separator
+				if ( markersProcessed < markers.size( ) )
+				{
+					markerStr += "%%7C";
+				}// if ( markersProcessed < markers.size( ) ).
+			}// for ( Marker marker : markers ).
+			query.addParameter( "markers", markerStr );
+		}//	if ( !markers.isEmpty( ) ). 
+
+		return new URL( URLBase + query );
+	}
+
 }

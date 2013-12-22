@@ -12,6 +12,7 @@ package thobe.mapview.kernel.mapprovider;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import thobe.mapview.kernel.tilesystem.GeoCoord;
@@ -34,6 +35,35 @@ public abstract class MapURLBuilder
 	 * @throws MalformedURLException
 	 */
 	public abstract URL buildURL( GeoCoord center, int zoomLevel, int width, int height, MapType mapType ) throws MalformedURLException;
+
+	/**
+	 * Create a {@link URL} from which a static map-image can be loaded.
+	 * @param center - the {@link GeoCoord} of the center of the image that should be loaded
+	 * @param zoomLevel - the zoom-level the image should have
+	 * @param width - the width of the image
+	 * @param height - the height of the image
+	 * @param mapType - the type of the map
+	 * @param markers - List of {@link Marker}s where flags/marker should be drawn.
+	 * @return
+	 * @throws MalformedURLException
+	 */
+	public abstract URL buildURL( GeoCoord center, int zoomLevel, int width, int height, MapType mapType, List<Marker> markers ) throws MalformedURLException;
+
+	/**
+	 * Create a {@link URL} from which a static map-image (with {@link MapType#ROADMAP}) can be loaded.
+	 * @param center - the {@link GeoCoord} of the center of the image that should be loaded
+	 * @param zoomLevel - the zoom-level the image should have
+	 * @param width - the width of the image
+	 * @param height - the height of the image
+	 * @param mapType - the type of the map
+	 * @param markers - List of {@link Marker}s where flags/marker should be drawn.
+	 * @return
+	 * @throws MalformedURLException
+	 */
+	public URL buildURL( GeoCoord center, int zoomLevel, int width, int height, List<Marker> markers ) throws MalformedURLException
+	{
+		return this.buildURL( center, zoomLevel, width, height, MapType.ROADMAP, markers );
+	}
 
 	/**
 	 * Create a {@link URL} from which a static map-image (with {@link MapType#ROADMAP}) can be loaded.

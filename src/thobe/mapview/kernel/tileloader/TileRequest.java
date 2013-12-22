@@ -9,17 +9,21 @@
  */
 package thobe.mapview.kernel.tileloader;
 
+import java.awt.Color;
 import java.awt.Image;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 import javax.imageio.ImageIO;
 
 import thobe.mapview.kernel.mapprovider.MapProvider;
 import thobe.mapview.kernel.mapprovider.MapURLBuilder;
+import thobe.mapview.kernel.mapprovider.Marker;
 import thobe.mapview.kernel.tilesystem.GeoCoord;
 import thobe.mapview.kernel.tilesystem.Tile;
 
@@ -40,9 +44,16 @@ public class TileRequest implements Runnable
 	private Image				image;
 	private String				error;
 	private boolean				terminated;
+	private boolean				mapCenterTile;
 
 	public TileRequest( Logger logger, MapURLBuilder urlBuilder, String tileId, GeoCoord tileCenter, int zoom )
 	{
+		this( logger, urlBuilder, tileId, tileCenter, zoom, false );
+	}
+
+	public TileRequest( Logger logger, MapURLBuilder urlBuilder, String tileId, GeoCoord tileCenter, int zoom, boolean mapCenterTile )
+	{
+		this.mapCenterTile = mapCenterTile;
 		this.error = null;
 		this.image = null;
 		this.logger = logger;
@@ -74,7 +85,19 @@ public class TileRequest implements Runnable
 
 				this.logger.fine( "Loading " + logPrefix( this.tileId ) + " (center=" + tileCenter.getFormatted( ) + ", size=" + Tile.TILE_SIZE_PX + "x" + Tile.TILE_SIZE_PX + ", zoom=" + this.zoom + ")" );
 
-				URL url = this.urlBuilder.buildURL( tileCenter, this.zoom, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
+				URL url = null;
+
+				if ( mapCenterTile )
+				{
+					List<Marker> centerMarker = new ArrayList<>( );
+					centerMarker.add( new Marker( this.tileCenter, 'C', Color.blue ) );
+					url = this.urlBuilder.buildURL( tileCenter, this.zoom, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX, centerMarker );
+				}
+				else
+				{
+					url = this.urlBuilder.buildURL( tileCenter, this.zoom, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
+				}
+
 				this.logger.info( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
 				URLConnection con = url.openConnection( );
 				con.setReadTimeout( READ_TIMEOUT );
