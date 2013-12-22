@@ -398,44 +398,60 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	/**
+	 * Returns the tile under/ at the given position (assuming that the position is in screen coordinates).
+	 * @param position
+	 * @return - the {@link Tile} at the requested position (migth be null).
+	 */
+	public Tile getTileAt( Point2D position )
+	{
+		// Convert the position to a position in screen-coordinates (even if the input-position is in screen-coordinates).
+		// This is necessary since the tiles are given in screen-coordinates but drawn in view-port coordinates.
+		// For example the user points with the mouse onto a position of the moved map. The tile-images are drawn in view-port coordinates
+		// (--> the user points onto a view port coordinate) but internally the tiles are related to screen-coordinates.
+		Point2D screenPos = this.viewPortPosToScreenPos( position );
+
+		// find the top-left tile of the tile-grid
+		Tile topleft = this.getTopLeftTile( );
+		if ( topleft == null )
+			return null;
+
+		int x0 = topleft.getX( );
+		int y0 = topleft.getY( );
+		int column0 = topleft.getColumn( );
+		int row0 = topleft.getRow( );
+
+		// compute the difference/distance between the position and the upper-left corner of the top-left tile.
+		double dx = screenPos.getX( ) - x0;
+		double dy = screenPos.getY( ) - y0;
+
+		// compute the differece between the column/row of the top-left tile and the tile at the requested position
+		int dCol = ( int ) ( dx / Tile.TILE_SIZE_PX );
+		int dRow = ( int ) ( dy / Tile.TILE_SIZE_PX );
+
+		// obtain the tile under the cursor using the computed column/ row
+		Tile tileUnderCursor = this.viewPortTiles.get( Tile.colRowToTileId( column0 + dCol, row0 + dRow ) );
+		if ( DBG )
+			log.finest( "P0(" + x0 + "," + y0 + ") - " + "P(" + screenPos.getX( ) + "," + screenPos.getY( ) + ") --> dXY(" + dx + "," + dy + ") --> dCR(" + dCol + "," + dRow + ") --> T" + ( ( tileUnderCursor != null ) ? tileUnderCursor : "null" ) );
+
+		return tileUnderCursor;
+	}
+
+	/**
 	 * Converts the given position into a {@link GeoCoord}.
 	 * @param position
 	 * @return - null if the conversion fails
 	 */
 	public GeoCoord posToGeoCoord( Point2D position )
 	{
-		// convert position to a view-position
-		Point2D vpPos = this.screenPosToViewPortPos( position );
-
-		System.out.println( vpPos );
-
-		Tile topleft = this.getTopLeftTile( );
-		if ( topleft == null )
-			return null;
-		
-		int x0 = topleft.getX( );
-		int y0 = topleft.getY( );
-		
-		
-		
-
-		// find the tile under cursor
-		int numTileColumns = this.getNumTileColumns( );
-		int column = ( int ) ( vpPos.getX( ) / Tile.TILE_SIZE_PX );
-		int row = ( int ) ( vpPos.getY( ) / Tile.TILE_SIZE_PX );
-		int tileId = ( row * numTileColumns ) + column;
-
-		// invalid column
-		if ( column > ( numTileColumns - 1 ) )
+		Tile tileUnderCursor = this.getTileAt( position );
+		if ( tileUnderCursor == null )
 			return null;
 
-		Tile vpTile = this.viewPortTiles.get( tileId );
-		if ( vpTile == null )
-			return null;
+		Point2D screenPos = this.viewPortPosToScreenPos( position );
 
 		// compute position on tile
-		Point2D tilePos = new Point2D.Double( vpPos.getX( ) - vpTile.getX( ), vpPos.getY( ) - vpTile.getY( ) );
-		GeoCoord geoCoord = MercatorProjection.pixelCoordOnImageToGeoCoord( tilePos, vpTile.getCenter( ), Tile.HALF_TILE_SIZE_PX, this.zoomLevel );
+		Point2D tilePos = new Point2D.Double( screenPos.getX( ) - tileUnderCursor.getX( ), screenPos.getY( ) - tileUnderCursor.getY( ) );
+		GeoCoord geoCoord = MercatorProjection.pixelCoordOnImageToGeoCoord( tilePos, tileUnderCursor.getCenter( ), Tile.HALF_TILE_SIZE_PX, this.zoomLevel );
 		return geoCoord;
 	}
 
