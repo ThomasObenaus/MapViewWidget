@@ -138,7 +138,7 @@ public class TileLoader extends Thread
 
 		if ( !completedRequests.isEmpty( ) )
 		{
-			this.log.info( completedRequests.size( ) + " requests completed, " + this.runningTileRequests.size( ) + " requests pending." );
+			this.log.fine( completedRequests.size( ) + " requests completed, " + this.runningTileRequests.size( ) + " requests pending." );
 		}
 	}
 
@@ -159,15 +159,15 @@ public class TileLoader extends Thread
 		switch ( event )
 		{
 		case SHUTDOWN:
-			log.info( "Event: SHUTDOWN received." );
+			log.fine( "Event: SHUTDOWN received." );
 			this.shudownRequested = true;
 			break;
 		case CANCEL_ALL_REQUESTS:
-			log.info( "Event: CANCEL_ALL_REQUESTS received." );
+			log.fine( "Event: CANCEL_ALL_REQUESTS received." );
 			this.processCancelAllRequests( );
 			break;
 		case NEW_REQUEST_BLOCK_AVAILABLE:
-			log.info( "Event: NEW_REQUEST_BLOCK_AVAILABLE received." );
+			log.fine( "Event: NEW_REQUEST_BLOCK_AVAILABLE received." );
 			this.processNewRequestBlockAvailable( );
 			break;
 		default:

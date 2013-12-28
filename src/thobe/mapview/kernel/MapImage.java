@@ -70,16 +70,20 @@ public class MapImage extends Canvas implements TileLoaderListener
 	private int							renderQuality			= RENDER_QUALITY_HIGH;
 
 	/**
-	 * Number of tiles used as border
+	 * Number of tiles used as border. There are two borders around the view-port the first one, the inner extended view-port is the border
 	 */
 	private static final int			NUM_BORDER_TILES		= 1;
 
 	/**
-	 * Number of pixels which are around the viewport-tiles and will be used to paint the border-tiles.
+	 * Number of pixels which are around the viewport-tiles and will be used to paint the border-tiles. This is the number of pixels, the
+	 * view-port itself is shrinked regarding the width/height that was specified via constructor or {@link MapImage#setViewPort(int, int)}.
+	 * So this value is typically 0. Only for debugging purposes it might be useful to shrink the view-port a little bit for being able to
+	 * see the inner- and outerExt view-port.
+	 * The view-port is shrinked using the following computation: viewPort.x = getBorderSize(); viewPort.y = getBorderSize();
+	 * viewPort.width = width - (2*getBorderSize());viewPort.height = height - (2*getBorderSize());
 	 */
-	private static final int			BORDER_SIZE				= -Tile.TILE_SIZE_PX;
+	private static final int			DEBUG_BORDER_SIZE		= Tile.TILE_SIZE_PX * 2;
 
-	private static final int			DEBUG_BORDER_SIZE		= 300;
 	private static final int			DEBUG_NUM_BORDER_TILES	= NUM_BORDER_TILES;
 
 	/**
@@ -350,7 +354,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 			@Override
 			public void mouseMoved( MouseEvent e )
 			{
-				System.out.println( "Screen=" + e.getPoint( ) + " --> viewPort=" + screenPosToViewPortPos( e.getPoint( ) ) + " --> geoCoord=" + posToGeoCoord( e.getPoint( ) ) );
+				//System.out.println( "Screen=" + e.getPoint( ) + " --> viewPort=" + screenPosToViewPortPos( e.getPoint( ) ) + " --> geoCoord=" + posToGeoCoord( e.getPoint( ) ) );
 			}
 		} );
 	}
@@ -482,6 +486,18 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int outerExtViewportSize = innerExtViewportSize * 2;
 		this.outerExtViewPort = new Rectangle2D.Double( this.viewPort.getX( ) - outerExtViewportSize, this.viewPort.getY( ) - outerExtViewportSize, this.viewPort.getWidth( ) + ( 2 * outerExtViewportSize ), this.viewPort.getHeight( ) + ( 2 * outerExtViewportSize ) );
 
+		if ( DBG )
+		{
+			String msg = "View-Port size updated (width=" + width + ",height=" + height + ", border=" + this.getBorderSize( ) + ", borderExtend=" + this.getViewPortBorderExtend( ) + ")";
+			log.info( msg );
+
+			msg = "New View-Port values:  viewPort=" + rectToString( this.viewPort );
+			msg += ", innerExtViewPort=" + rectToString( this.innerExtViewPort );
+			msg += ", outerExtViewPort=" + rectToString( this.innerExtViewPort );
+			log.info( msg );
+		}
+
+		// Update the tile-grid using the new size and request the images.
 		this.updateTileGrid( );
 		this.createTileRequests( );
 	}
@@ -544,6 +560,22 @@ public class MapImage extends Canvas implements TileLoaderListener
 		if ( missingRowsTop < 0 )
 			missingRowsTop = 0;
 
+		// compute how many rows/columns are needed to cover the inner extended view-port
+		// find missing rows on the left and columns on the top
+		int missingColumnsRight = ( int ) ( ( ( this.innerExtViewPort.getX( ) + this.innerExtViewPort.getWidth( ) ) - ( this.tileGridBounds.getX( ) + this.tileGridBounds.getWidth( ) ) ) / ( double ) Tile.TILE_SIZE_PX );
+		int missingRowsBottom = ( int ) ( ( ( this.innerExtViewPort.getY( ) + this.innerExtViewPort.getHeight( ) ) - ( this.tileGridBounds.getY( ) + this.tileGridBounds.getHeight( ) ) ) / ( double ) Tile.TILE_SIZE_PX );
+
+		if ( this.tileGridBounds.getWidth( ) == 0 )
+			missingColumnsRight = 0;
+		if ( this.tileGridBounds.getHeight( ) == 0 )
+			missingRowsBottom= 0;
+
+		// reset to 0 if no rows/columns are missing
+		if ( missingColumnsRight < 0 )
+			missingColumnsRight = 0;
+		if ( missingRowsBottom < 0 )
+			missingRowsBottom = 0;
+
 		// compute the top-left column/row [col0,row0]
 		int column0 = 0;
 		int row0 = 0;
@@ -559,8 +591,10 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int y0 = ( int ) ( row0 * Tile.TILE_SIZE_PX + this.outerExtViewPort.getY( ) );
 
 		// compute how many columns/rows are visible
-		int numberOfVisibleColumns = missingColumnsLeft + this.getNumTileColumns( ) + column0;
-		int numberOfVisibleRows = missingRowsTop + this.getNumTileRows( ) + row0;
+		int numberOfVisibleColumns = missingColumnsLeft + this.getNumTileColumns( ) + column0 + missingColumnsRight;
+		int numberOfVisibleRows = missingRowsTop + this.getNumTileRows( ) + row0 + missingRowsBottom;
+
+		System.out.println( "TileGridBounds: " + rectToString( this.tileGridBounds ) + ", missingColumnsLeft=" + missingColumnsLeft + ", missingRowsTop=" + missingRowsTop + ", this.getNumTileColumns( )=" + this.getNumTileColumns( ) + ", this.getNumTileRows( )=" + this.getNumTileRows( ) + ", missingColumnsRight=" + missingColumnsRight + ", missingRowsBottom=" + missingRowsBottom );
 
 		// compute column and row of the Tile containing the center of the map.
 		// Compute the column/row regarding the number of columns/rows.
@@ -575,7 +609,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 			this.mapCenter = this.mapCenterTile.getCenter( );
 
 			if ( DBG )
-				log.info( "Tile [" + this.mapCenterTile.getTileId( ) + "] Is the new Tile containing the map-center (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
+				log.fine( "Tile [" + this.mapCenterTile.getTileId( ) + "] Is the new Tile containing the map-center (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
 		}// if ( ( newPotentialMapCenterTile != null ) && ( newPotentialMapCenterTile != this.mapCenterTile ) ).
 
 		// Compute the delta/difference if a GeoCoordinate will be moved by n pixel (size of one tile).
@@ -601,7 +635,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 					tile = new Tile( tileId, x, y );
 					this.viewPortTiles.put( tileId, tile );
 					if ( DBG )
-						log.info( "Tile [" + tile.getTileId( ) + "] created and added." );
+						log.fine( "Tile [" + tile.getTileId( ) + "] created and added." );
 				}// if ( tile == null ).
 
 				// tile containing the map-center found
@@ -609,7 +643,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 				{
 					this.mapCenterTile = tile;
 					if ( DBG )
-						log.info( "Tile [" + tile.getTileId( ) + "] contains the center of the Map (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
+						log.fine( "Tile [" + tile.getTileId( ) + "] contains the center of the Map (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
 				}// if ( ( col == columnOfMapCenter ) && ( row == rowOfMapCenter ) ).
 
 				// Determine the distance (number of columns/rows) of this Tile to the Tile containing the map-center.
@@ -664,7 +698,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 		// no tiles --> bounds are [0,0,0,0]
 		if ( this.viewPortTiles.isEmpty( ) )
 		{
-			this.tileGridBounds.setRect( 0, 0, 0, 0 );
+			this.tileGridBounds.setRect( this.innerExtViewPort.getX( ), this.innerExtViewPort.getY( ), 0, 0 );
 		}// if ( this.viewPortTiles.isEmpty( ) ).
 		else
 		{
@@ -704,7 +738,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 				tileRequests.add( new TileRequest( this.log, this.urlBuilder, viewPortTile.getTileId( ), viewPortTile.getCenter( ), viewPortTile.getZoomLevel( ) ) );
 
 				if ( DBG )
-					log.info( "Tile [" + viewPortTile.getTileId( ) + "] Request started: geoCoord=" + viewPortTile.getCenter( ).getFormatted( ) );
+					log.fine( "Tile [" + viewPortTile.getTileId( ) + "] Request started: geoCoord=" + viewPortTile.getCenter( ).getFormatted( ) );
 			}// if ( !viewPortTile.isValid( ) ).
 		}// for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) ).
 
@@ -717,12 +751,12 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 	private int getNumTileColumns( )
 	{
-		return ( int ) Math.round( this.outerExtViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX );
+		return ( int ) Math.round( this.innerExtViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX );
 	}
 
 	private int getNumTileRows( )
 	{
-		return ( int ) Math.round( this.outerExtViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX );
+		return ( int ) Math.round( this.innerExtViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX );
 	}
 
 	private void paint( Graphics2D gr )
@@ -905,29 +939,49 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	/**
-	 * Returns the number of pixels used to extend the current viewport to get the extended viewport. This extension is, like a border,
-	 * around the current viewport.
+	 * Returns the number of pixels used to extend the current view-port to get the extended view-port. This extension is like a border
+	 * around the current view-port.
 	 * @return
 	 */
 	public int getViewPortBorderExtend( )
 	{
 		if ( DBG )
+		{
 			return DEBUG_NUM_BORDER_TILES * Tile.TILE_SIZE_PX;
+		}// if ( DBG ).
 		return NUM_BORDER_TILES * Tile.TILE_SIZE_PX;
 	}
 
-	public int getBorderSize( )
+	/**
+	 * Number of pixels which are around the viewport-tiles and will be used to paint the border-tiles. This is the number of pixels, the
+	 * view-port itself is shrinked regarding the width/height that was specified via constructor or {@link MapImage#setViewPort(int, int)}.
+	 * So this value is typically 0. Only for debugging purposes it might be useful to shrink the view-port a little bit for being able to
+	 * see the inner- and outerExt view-port.
+	 * The view-port is shrinked using the following computation: viewPort.x = getBorderSize(); viewPort.y = getBorderSize();
+	 * viewPort.width = width - (2*getBorderSize());viewPort.height = height - (2*getBorderSize());
+	 * @returns - The number of pixels
+	 */
+	private int getBorderSize( )
 	{
+		// Use a border only for debugging.
 		if ( DBG )
+		{
 			return DEBUG_BORDER_SIZE;
-		return BORDER_SIZE;
+		}// if ( DBG ).
+		return 0;
 	}
 
+	/**
+	 * Reset the view to initial values.
+	 */
 	public void resetView( )
 	{
 		if ( this.initialCam == null )
+		{
 			return;
+		}// if ( this.initialCam == null ).
 		this.camera.setTransform( this.initialCam );
+
 		this.repaint( );
 	}
 
@@ -940,7 +994,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 			Tile viewPortTile = this.viewPortTiles.get( tileId );
 			if ( viewPortTile != null )
 			{
-				this.log.info( "onTileLoadRequestComplete(tile=" + viewPortTile + ")" );
+				this.log.fine( "onTileLoadRequestComplete(tile=" + viewPortTile + ")" );
 				viewPortTile.setImage( image );
 				viewPortTile.setValid( true );
 				try
@@ -964,7 +1018,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 			if ( viewPortTile != null )
 			{
 
-				this.log.info( "onTileLoadRequestStarted(tile=" + viewPortTile + ")" );
+				this.log.fine( "onTileLoadRequestStarted(tile=" + viewPortTile + ")" );
 			}
 		}
 	}
@@ -978,19 +1032,19 @@ public class MapImage extends Canvas implements TileLoaderListener
 			if ( viewPortTile != null )
 			{
 				viewPortTile.setValid( false );
-				this.log.severe( "onTileLoadRequestFailed(tile=" + viewPortTile + ", reason=" + reason + ", cause=" + cause + ")" );
+				this.log.fine( "onTileLoadRequestFailed(tile=" + viewPortTile + ", reason=" + reason + ", cause=" + cause + ")" );
 			}
 		}
 	}
 
-	public static void setDebug( boolean debug )
+	/**
+	 * Creates a formatted string for a {@link Rectangle2D}.
+	 * @param rect
+	 * @return
+	 */
+	private static String rectToString( Rectangle2D rect )
 	{
-		MapImage.DBG = debug;
-	}
-
-	public static boolean isDebug( )
-	{
-		return DBG;
+		return "[x=" + rect.getX( ) + ", y=" + rect.getY( ) + ", witdh=" + rect.getWidth( ) + ", height=" + rect.getHeight( ) + "]";
 	}
 
 	private class Repainter extends Thread

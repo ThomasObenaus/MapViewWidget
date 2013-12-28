@@ -9,21 +9,17 @@
  */
 package thobe.mapview.kernel.tileloader;
 
-import java.awt.Color;
 import java.awt.Image;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Logger;
 
 import javax.imageio.ImageIO;
 
 import thobe.mapview.kernel.mapprovider.MapProvider;
 import thobe.mapview.kernel.mapprovider.MapURLBuilder;
-import thobe.mapview.kernel.mapprovider.Marker;
 import thobe.mapview.kernel.tilesystem.GeoCoord;
 import thobe.mapview.kernel.tilesystem.Tile;
 
@@ -80,7 +76,7 @@ public class TileRequest implements Runnable
 
 				URL url = this.urlBuilder.buildURL( tileCenter, this.zoom, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
 
-				this.logger.info( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
+				this.logger.fine( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
 				URLConnection con = url.openConnection( );
 				con.setReadTimeout( READ_TIMEOUT );
 				con.setConnectTimeout( READ_TIMEOUT );
@@ -113,7 +109,7 @@ public class TileRequest implements Runnable
 			this.error = errorMsg;
 			this.terminated = true;
 			this.image = tileImage;
-			this.logger.info( "Loading " + logPrefix( this.tileId ) + " done" );
+			this.logger.fine( "Loading " + logPrefix( this.tileId ) + " done" );
 		}
 	}
 

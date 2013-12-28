@@ -63,7 +63,6 @@ public class MapImageExpl extends JFrame
 	{
 		try
 		{
-			MapImage.setDebug( true );
 			Log.initLog( "MapImageExample", Level.INFO );
 			MapImageExpl frame = new MapImageExpl( );
 			frame.setVisible( true );
