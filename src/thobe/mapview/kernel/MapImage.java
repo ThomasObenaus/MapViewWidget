@@ -59,32 +59,30 @@ public class MapImage extends Canvas implements TileLoaderListener
 {
 	private static boolean				DBG;
 	private static boolean				DRAW_VIEWPORTS;
-	private static final Color			DEBUG_COLOR				= Color.BLACK;
-	private static final Stroke			DEBUG_STROKE			= new BasicStroke( 3 );
-	private static final Font			DEBUG_FONT				= new Font( "Arial", Font.BOLD, 12 );
-	private static final Font			DEBUG_FONT_BIG			= new Font( "Arial", Font.BOLD, 25 );
+	private static final Color			DEBUG_COLOR							= Color.BLACK;
+	private static final Stroke			DEBUG_STROKE						= new BasicStroke( 3 );
+	private static final Font			DEBUG_FONT							= new Font( "Arial", Font.BOLD, 12 );
+	private static final Font			DEBUG_FONT_BIG						= new Font( "Arial", Font.BOLD, 25 );
 
-	public static final int				RENDER_QUALITY_LOW		= 0;
-	public static final int				RENDER_QUALITY_HIGH		= 1;
-	private BufferStrategy				strategy				= null;
-	private int							renderQuality			= RENDER_QUALITY_HIGH;
-
-	/**
-	 * Number of tiles used as border. There are two borders around the view-port the first one, the inner extended view-port is the border
-	 */
-	private static final int			NUM_BORDER_TILES		= 1;
+	public static final int				RENDER_QUALITY_LOW					= 0;
+	public static final int				RENDER_QUALITY_HIGH					= 1;
+	private BufferStrategy				strategy							= null;
+	private int							renderQuality						= RENDER_QUALITY_HIGH;
 
 	/**
-	 * Number of pixels which are around the viewport-tiles and will be used to paint the border-tiles. This is the number of pixels, the
-	 * view-port itself is shrinked regarding the width/height that was specified via constructor or {@link MapImage#setViewPort(int, int)}.
-	 * So this value is typically 0. Only for debugging purposes it might be useful to shrink the view-port a little bit for being able to
-	 * see the inner- and outerExt view-port.
-	 * The view-port is shrinked using the following computation: viewPort.x = getBorderSize(); viewPort.y = getBorderSize();
-	 * viewPort.width = width - (2*getBorderSize());viewPort.height = height - (2*getBorderSize());
+	 * Distance (in pixel) to the inner view-port extension (measured from the view-port).
 	 */
-	private static final int			DEBUG_BORDER_SIZE		= Tile.TILE_SIZE_PX/2;
+	private static final int			DIST_TO_INNER_VIEWPORT_EXTENSION	= Tile.TILE_SIZE_PX / 2;
 
-	private static final int			DEBUG_NUM_BORDER_TILES	= NUM_BORDER_TILES;
+	/**
+	 * Distance (in pixel) to the outer view-port extension (measured from the inner view-port extension).
+	 */
+	private static final int			DIST_TO_OUTER_VIEWPORT_EXTENSION	= 50;
+
+	/**
+	 * A border (used only for debugging purposes) (size in pixel).
+	 */
+	private static final int			DEBUG_BORDER_SIZE					= 80;
 
 	/**
 	 * Map of {@link Tile}s <id of the {@link Tile},{@link Tile}>. The {@link Tile}s image-coordinates (x,y)
@@ -476,19 +474,19 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 	public void setViewPort( int width, int height )
 	{
-		this.viewPort = new Rectangle2D.Double( this.getBorderSize( ), this.getBorderSize( ), width - ( 2 * this.getBorderSize( ) ), height - ( 2 * this.getBorderSize( ) ) );
+		this.viewPort = new Rectangle2D.Double( this.getBorderSize( ), this.getBorderSize( ), width, height );
 
 		// extend to compute the inner-extended view-port
-		int innerExtViewportSize = this.getViewPortBorderExtend( );
+		int innerExtViewportSize = DIST_TO_INNER_VIEWPORT_EXTENSION;
 		this.innerExtViewPort = new Rectangle2D.Double( this.viewPort.getX( ) - innerExtViewportSize, this.viewPort.getY( ) - innerExtViewportSize, this.viewPort.getWidth( ) + ( 2 * innerExtViewportSize ), this.viewPort.getHeight( ) + ( 2 * innerExtViewportSize ) );
 
 		// extend to compute the outer-extended view-port
-		int outerExtViewportSize = innerExtViewportSize * 2;
+		int outerExtViewportSize = innerExtViewportSize + DIST_TO_OUTER_VIEWPORT_EXTENSION;
 		this.outerExtViewPort = new Rectangle2D.Double( this.viewPort.getX( ) - outerExtViewportSize, this.viewPort.getY( ) - outerExtViewportSize, this.viewPort.getWidth( ) + ( 2 * outerExtViewportSize ), this.viewPort.getHeight( ) + ( 2 * outerExtViewportSize ) );
 
 		if ( DBG )
 		{
-			String msg = "View-Port size updated (width=" + width + ",height=" + height + ", border=" + this.getBorderSize( ) + ", borderExtend=" + this.getViewPortBorderExtend( ) + ")";
+			String msg = "View-Port size updated (width=" + width + ",height=" + height + ", border=" + this.getBorderSize( ) + ", innerVPextend=" + DIST_TO_INNER_VIEWPORT_EXTENSION + ", outerVPextend=" + DIST_TO_OUTER_VIEWPORT_EXTENSION + ")";
 			log.info( msg );
 
 			msg = "New View-Port values:  viewPort=" + rectToString( this.viewPort );
@@ -993,20 +991,6 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	/**
-	 * Returns the number of pixels used to extend the current view-port to get the extended view-port. This extension is like a border
-	 * around the current view-port.
-	 * @return
-	 */
-	public int getViewPortBorderExtend( )
-	{
-		if ( DBG )
-		{
-			return DEBUG_NUM_BORDER_TILES * Tile.TILE_SIZE_PX;
-		}// if ( DBG ).
-		return NUM_BORDER_TILES * Tile.TILE_SIZE_PX;
-	}
-
-	/**
 	 * Number of pixels which are around the viewport-tiles and will be used to paint the border-tiles. This is the number of pixels, the
 	 * view-port itself is shrinked regarding the width/height that was specified via constructor or {@link MapImage#setViewPort(int, int)}.
 	 * So this value is typically 0. Only for debugging purposes it might be useful to shrink the view-port a little bit for being able to
@@ -1020,7 +1004,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 		// Use a border only for debugging.
 		if ( DBG )
 		{
-			return DEBUG_BORDER_SIZE;
+			return DEBUG_BORDER_SIZE + DIST_TO_INNER_VIEWPORT_EXTENSION + DIST_TO_OUTER_VIEWPORT_EXTENSION;
 		}// if ( DBG ).
 		return 0;
 	}
