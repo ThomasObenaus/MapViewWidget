@@ -82,7 +82,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 * The view-port is shrinked using the following computation: viewPort.x = getBorderSize(); viewPort.y = getBorderSize();
 	 * viewPort.width = width - (2*getBorderSize());viewPort.height = height - (2*getBorderSize());
 	 */
-	private static final int			DEBUG_BORDER_SIZE		= Tile.TILE_SIZE_PX * 2;
+	private static final int			DEBUG_BORDER_SIZE		= Tile.TILE_SIZE_PX/2;
 
 	private static final int			DEBUG_NUM_BORDER_TILES	= NUM_BORDER_TILES;
 
@@ -541,6 +541,60 @@ public class MapImage extends Canvas implements TileLoaderListener
 	}
 
 	/**
+	 * Returns the missing grid-elements based on given element-type ({@link GridElement#COLUMN} or {@link GridElement#ROW}) and position (
+	 * {@link GridPosition#TOP_LEFT} or {@link GridPosition#BOTTOM_RIGHT}).
+	 * @param gElement
+	 * @param gPos
+	 * @return
+	 */
+	private int computeMissingGridElements( GridElement gElement, GridPosition gPos )
+	{
+		// compute the distance between the right/left or top/lower border of the tile-grid and the according border of the inner extended view-port
+		double delta = 0;
+
+		// missing columns on the left side
+		if ( ( gElement == GridElement.COLUMN ) && ( gPos == GridPosition.TOP_LEFT ) )
+		{
+			delta = this.tileGridBounds.getX( ) - this.innerExtViewPort.getX( );
+		}
+		// missing columns on the right side
+		else if ( ( gElement == GridElement.COLUMN ) && ( gPos == GridPosition.BOTTOM_RIGHT ) )
+		{
+			delta = ( this.innerExtViewPort.getX( ) + this.innerExtViewPort.getWidth( ) ) - ( this.tileGridBounds.getX( ) + this.tileGridBounds.getWidth( ) );
+		}
+		// missing rows on the top side
+		else if ( ( gElement == GridElement.ROW ) && ( gPos == GridPosition.TOP_LEFT ) )
+		{
+			delta = this.tileGridBounds.getY( ) - this.innerExtViewPort.getY( );
+		}
+		// missing rows on the bottom side
+		else if ( ( gElement == GridElement.ROW ) && ( gPos == GridPosition.BOTTOM_RIGHT ) )
+		{
+			delta = ( this.innerExtViewPort.getY( ) + this.innerExtViewPort.getHeight( ) ) - ( this.tileGridBounds.getY( ) + this.tileGridBounds.getHeight( ) );
+		}
+
+		// reset to 0 for invalid tile-grid bounds
+		if ( this.tileGridBounds.getWidth( ) == 0 )
+			delta = 0;
+		if ( this.tileGridBounds.getHeight( ) == 0 )
+			delta = 0;
+
+		int missingGridElements = 0;
+		if ( ( delta > 0 ) && ( delta <= Tile.TILE_SIZE_PX ) )
+		{
+			// at least one grid-element if delta is > 0
+			missingGridElements = 1;
+		}// if ( ( delta > 0 ) && ( delta <= Tile.TILE_SIZE_PX ) ).
+		else if ( ( delta > 0 ) && ( delta > Tile.TILE_SIZE_PX ) )
+		{
+			// otherwise compute the number of missing grid-elements
+			missingGridElements = ( int ) ( delta / ( double ) Tile.TILE_SIZE_PX );
+		}// else if (( delta > 0 ) && ( delta > Tile.TILE_SIZE_PX )).
+
+		return missingGridElements;
+	}
+
+	/**
 	 * This internal method computes/creates the Tiles which are visible on the viewport and computes the {@link GeoCoord}s used for this
 	 * {@link Tile}s.
 	 */
@@ -550,31 +604,14 @@ public class MapImage extends Canvas implements TileLoaderListener
 		this.updateTileGridBounds( );
 
 		// compute how many rows/columns are needed to cover the inner extended view-port
-		// find missing rows on the left and columns on the top
-		int missingColumnsLeft = ( int ) Math.floor( ( this.tileGridBounds.getX( ) - this.innerExtViewPort.getX( ) ) / ( double ) Tile.TILE_SIZE_PX ) + 1;
-		int missingRowsTop = ( int ) Math.floor( ( this.tileGridBounds.getY( ) - this.innerExtViewPort.getY( ) ) / ( double ) Tile.TILE_SIZE_PX ) + 1;
-
-		// reset to 0 if no rows/columns are missing
-		if ( missingColumnsLeft < 0 )
-			missingColumnsLeft = 0;
-		if ( missingRowsTop < 0 )
-			missingRowsTop = 0;
+		// find missing rows on the top and columns on the left
+		int missingColumnsLeft = computeMissingGridElements( GridElement.COLUMN, GridPosition.TOP_LEFT );
+		int missingRowsTop = computeMissingGridElements( GridElement.ROW, GridPosition.TOP_LEFT );
 
 		// compute how many rows/columns are needed to cover the inner extended view-port
-		// find missing rows on the left and columns on the top
-		int missingColumnsRight = ( int ) ( ( ( this.innerExtViewPort.getX( ) + this.innerExtViewPort.getWidth( ) ) - ( this.tileGridBounds.getX( ) + this.tileGridBounds.getWidth( ) ) ) / ( double ) Tile.TILE_SIZE_PX );
-		int missingRowsBottom = ( int ) ( ( ( this.innerExtViewPort.getY( ) + this.innerExtViewPort.getHeight( ) ) - ( this.tileGridBounds.getY( ) + this.tileGridBounds.getHeight( ) ) ) / ( double ) Tile.TILE_SIZE_PX );
-
-		if ( this.tileGridBounds.getWidth( ) == 0 )
-			missingColumnsRight = 0;
-		if ( this.tileGridBounds.getHeight( ) == 0 )
-			missingRowsBottom= 0;
-
-		// reset to 0 if no rows/columns are missing
-		if ( missingColumnsRight < 0 )
-			missingColumnsRight = 0;
-		if ( missingRowsBottom < 0 )
-			missingRowsBottom = 0;
+		// find missing rows on the bottom and columns on the right
+		int missingColumnsRight = computeMissingGridElements( GridElement.COLUMN, GridPosition.BOTTOM_RIGHT );
+		int missingRowsBottom = computeMissingGridElements( GridElement.ROW, GridPosition.BOTTOM_RIGHT );
 
 		// compute the top-left column/row [col0,row0]
 		int column0 = 0;
@@ -591,10 +628,15 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int y0 = ( int ) ( row0 * Tile.TILE_SIZE_PX + this.outerExtViewPort.getY( ) );
 
 		// compute how many columns/rows are visible
-		int numberOfVisibleColumns = missingColumnsLeft + this.getNumTileColumns( ) + column0 + missingColumnsRight;
-		int numberOfVisibleRows = missingRowsTop + this.getNumTileRows( ) + row0 + missingRowsBottom;
+		int numberOfVisibleColumns = missingColumnsLeft + this.getNumTileColumns( ) + missingColumnsRight;
+		int numberOfVisibleRows = missingRowsTop + this.getNumTileRows( ) + missingRowsBottom;
 
-		System.out.println( "TileGridBounds: " + rectToString( this.tileGridBounds ) + ", missingColumnsLeft=" + missingColumnsLeft + ", missingRowsTop=" + missingRowsTop + ", this.getNumTileColumns( )=" + this.getNumTileColumns( ) + ", this.getNumTileRows( )=" + this.getNumTileRows( ) + ", missingColumnsRight=" + missingColumnsRight + ", missingRowsBottom=" + missingRowsBottom );
+		// compute the index of the last column/ row
+		int idxOfLastColumn = ( numberOfVisibleColumns - 1 ) + column0;
+		int idxOfLastRow = ( numberOfVisibleRows - 1 ) + row0;
+
+		if ( DBG )
+			log.info( "numberOfVisibleColumns=" + numberOfVisibleColumns + ", numberOfVisibleRows=" + numberOfVisibleRows + ", idxOfFirstColumn=" + column0 + ", idxOfFirstRow=" + row0 + ", idxOfLastColumn=" + idxOfLastColumn + ", idxOfLastRow=" + idxOfLastRow );
 
 		// compute column and row of the Tile containing the center of the map.
 		// Compute the column/row regarding the number of columns/rows.
@@ -621,10 +663,10 @@ public class MapImage extends Canvas implements TileLoaderListener
 		// 1. Create Tiles that are missing (where not created yet but are visible on the map).
 		// 2. Update geo-coordinates and zoom-level of existing Tiles. 
 		int y = y0;
-		for ( int row = row0; row < numberOfVisibleRows; row++ )
+		for ( int row = row0; row <= idxOfLastRow; row++ )
 		{
 			int x = x0;
-			for ( int column = column0; column < numberOfVisibleColumns; column++ )
+			for ( int column = column0; column <= idxOfLastColumn; column++ )
 			{
 				String tileId = Tile.colRowToTileId( column, row );
 				Tile tile = this.viewPortTiles.get( tileId );
@@ -751,12 +793,24 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 	private int getNumTileColumns( )
 	{
-		return ( int ) Math.round( this.innerExtViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX );
+		if ( this.tileGridBounds.getWidth( ) == 0 )
+		{
+			// use the size of the inner extended view-port to compute the number of columns needed in case the tile-grid
+			// bounds are not yet initialized.
+			return ( int ) ( Math.round( this.innerExtViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX ) ) + 1;
+		}// if ( this.tileGridBounds.getWidth( ) == 0 ).	
+		return ( int ) ( Math.round( this.tileGridBounds.getWidth( ) / ( double ) Tile.TILE_SIZE_PX ) );
 	}
 
 	private int getNumTileRows( )
 	{
-		return ( int ) Math.round( this.innerExtViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX );
+		if ( this.tileGridBounds.getHeight( ) == 0 )
+		{
+			// use the size of the inner extended view-port to compute the number of rows needed in case the tile-grid
+			// bounds are not yet initialized.
+			return ( int ) ( Math.round( this.innerExtViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX ) ) + 1;
+		}// if ( this.tileGridBounds.getHeight( ) == 0 ).
+		return ( int ) ( Math.round( this.tileGridBounds.getHeight( ) / ( double ) Tile.TILE_SIZE_PX ) );
 	}
 
 	private void paint( Graphics2D gr )
@@ -1079,5 +1133,15 @@ public class MapImage extends Canvas implements TileLoaderListener
 	private enum CameraState
 	{
 		NORMAL, PAN, ZOOM;
+	}
+
+	private enum GridElement
+	{
+		COLUMN, ROW;
+	}
+
+	private enum GridPosition
+	{
+		TOP_LEFT, BOTTOM_RIGHT;
 	}
 }
