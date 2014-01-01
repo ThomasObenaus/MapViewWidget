@@ -26,6 +26,7 @@ import thobe.tools.log.Log;
  * @source MapImageExpl.java
  * @date Nov 24, 2013
  */
+@SuppressWarnings ( "serial")
 public class MapImageExpl extends JFrame
 {
 	private MapImage	mapImage;
@@ -55,7 +56,7 @@ public class MapImageExpl extends JFrame
 	private void buildGUI( )
 	{
 		this.setLayout( new BorderLayout( 0, 0 ) );
-		this.mapImage = new MapImage( getWidth( ), getHeight( ), Log.LOG( ) );
+		this.mapImage = new MapImage( getWidth( ) - 300, getHeight( ) - 300, Log.LOG( ) );
 		this.add( this.mapImage, BorderLayout.CENTER );
 	}
 

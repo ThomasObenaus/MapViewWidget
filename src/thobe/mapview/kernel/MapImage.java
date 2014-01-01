@@ -237,6 +237,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 					tra.setToIdentity( );
 					tra.translate( e.getX( ), e.getY( ) );
 					camera.preConcatenate( tra );
+					updateTileGrid( );
+					createTileRequests( );
 				}
 				repaint( );
 			}
@@ -532,10 +534,24 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 */
 	private Rectangle2D toExtendedViewPortCoordinates( Rectangle2D toTransform, AffineTransform tf )
 	{
-		// We only have to transform the position of the top-left corner of the rectangle.
+		// transform the top-left corner
 		Point2D topleft = new Point2D.Double( toTransform.getX( ), toTransform.getY( ) );
 		topleft = tf.transform( topleft, topleft );
-		return new Rectangle2D.Double( topleft.getX( ), topleft.getY( ), toTransform.getWidth( ), toTransform.getHeight( ) );
+
+		// transform the bottom-right corner (needed for width and height)
+		Point2D bottomRight = new Point2D.Double( toTransform.getX( ) + toTransform.getWidth( ), toTransform.getY( ) + toTransform.getHeight( ) );
+		bottomRight = tf.transform( bottomRight, bottomRight );
+		return new Rectangle2D.Double( topleft.getX( ), topleft.getY( ), bottomRight.getX( ) - topleft.getX( ), bottomRight.getY( ) - topleft.getY( ) );
+	}
+
+	/**
+	 * Returns the size of a {@link Tile} in camera/view-port coordinates, that means the current zoom (scale) is applied to the size of the
+	 * {@link Tile}.
+	 * @return
+	 */
+	private double getScaledTileSize( )
+	{
+		return Tile.TILE_SIZE_PX * this.camera.getScaleX( );
 	}
 
 	/**
@@ -577,17 +593,20 @@ public class MapImage extends Canvas implements TileLoaderListener
 		if ( this.tileGridBounds.getHeight( ) == 0 )
 			delta = 0;
 
+		// obtain the size of a tile related to the current camera (regarding zoom --> scale)
+		double scaledTileSize = getScaledTileSize( );
+
 		int missingGridElements = 0;
-		if ( ( delta > 0 ) && ( delta <= Tile.TILE_SIZE_PX ) )
+		if ( ( delta > 0 ) && ( delta <= scaledTileSize ) )
 		{
 			// at least one grid-element if delta is > 0
 			missingGridElements = 1;
-		}// if ( ( delta > 0 ) && ( delta <= Tile.TILE_SIZE_PX ) ).
-		else if ( ( delta > 0 ) && ( delta > Tile.TILE_SIZE_PX ) )
+		}// if ( ( delta > 0 ) && ( delta <= scaledTileSize ) ).
+		else if ( ( delta > 0 ) && ( delta > scaledTileSize ) )
 		{
 			// otherwise compute the number of missing grid-elements
-			missingGridElements = ( int ) ( delta / ( double ) Tile.TILE_SIZE_PX );
-		}// else if (( delta > 0 ) && ( delta > Tile.TILE_SIZE_PX )).
+			missingGridElements = ( int ) ( delta / ( double ) scaledTileSize );
+		}// else if (( delta > 0 ) && ( delta > scaledTileSize )).
 
 		return missingGridElements;
 	}
@@ -634,7 +653,10 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int idxOfLastRow = ( numberOfVisibleRows - 1 ) + row0;
 
 		if ( DBG )
+		{
 			log.info( "numberOfVisibleColumns=" + numberOfVisibleColumns + ", numberOfVisibleRows=" + numberOfVisibleRows + ", idxOfFirstColumn=" + column0 + ", idxOfFirstRow=" + row0 + ", idxOfLastColumn=" + idxOfLastColumn + ", idxOfLastRow=" + idxOfLastRow );
+			log.info( "tileGridBounds=" + rectToString( this.tileGridBounds ) );
+		}
 
 		// compute column and row of the Tile containing the center of the map.
 		// Compute the column/row regarding the number of columns/rows.
@@ -723,11 +745,19 @@ public class MapImage extends Canvas implements TileLoaderListener
 				toRemove.add( tile );
 			}
 		}
-		// now remove the tiles 
-		for ( Tile tile : toRemove )
+
+		// Guarantee that at least one tile will be visible.
+		// Remove only tiles if some tiles will be left in the list of view-port tiles.
+		if ( this.viewPortTiles.size( ) > toRemove.size( ) )
 		{
-			this.viewPortTiles.remove( tile.getTileId( ) );
-		}
+			// now remove the tiles 
+			for ( Tile tile : toRemove )
+			{
+				this.viewPortTiles.remove( tile.getTileId( ) );
+			}
+		}// if(this.viewPortTiles.size( ) > toRemove.size( )).
+
+		this.updateTileGridBounds( );
 	}
 
 	/**
@@ -758,9 +788,11 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 			// Convert the coordinates of the upper- and leftmost Tile (given in screen coordinates) to view-port coordinates. 
 			Point2D upperLeftCorner = screenPosToViewPortPos( new Point2D.Double( minX, minY ) );
-			double width = ( maxX - minX ) + Tile.TILE_SIZE_PX;
-			double height = ( maxY - minY ) + Tile.TILE_SIZE_PX;
+			Point2D lowerRightCorner = screenPosToViewPortPos( new Point2D.Double( maxX + Tile.TILE_SIZE_PX, maxY + Tile.TILE_SIZE_PX ) );
+			double width = lowerRightCorner.getX( ) - upperLeftCorner.getX( );
+			double height = lowerRightCorner.getY( ) - upperLeftCorner.getY( );
 			this.tileGridBounds.setRect( upperLeftCorner.getX( ), upperLeftCorner.getY( ), width, height );
+
 		}// if ( this.viewPortTiles.isEmpty( ) ) ... else ...
 	}
 
@@ -795,9 +827,9 @@ public class MapImage extends Canvas implements TileLoaderListener
 		{
 			// use the size of the inner extended view-port to compute the number of columns needed in case the tile-grid
 			// bounds are not yet initialized.
-			return ( int ) ( Math.round( this.innerExtViewPort.getWidth( ) / ( double ) Tile.TILE_SIZE_PX ) ) + 1;
+			return ( int ) ( Math.round( this.innerExtViewPort.getWidth( ) / this.getScaledTileSize( ) ) ) + 1;
 		}// if ( this.tileGridBounds.getWidth( ) == 0 ).	
-		return ( int ) ( Math.round( this.tileGridBounds.getWidth( ) / ( double ) Tile.TILE_SIZE_PX ) );
+		return ( int ) ( Math.round( this.tileGridBounds.getWidth( ) / this.getScaledTileSize( ) ) );
 	}
 
 	private int getNumTileRows( )
@@ -806,9 +838,9 @@ public class MapImage extends Canvas implements TileLoaderListener
 		{
 			// use the size of the inner extended view-port to compute the number of rows needed in case the tile-grid
 			// bounds are not yet initialized.
-			return ( int ) ( Math.round( this.innerExtViewPort.getHeight( ) / ( double ) Tile.TILE_SIZE_PX ) ) + 1;
+			return ( int ) ( Math.round( this.innerExtViewPort.getHeight( ) / this.getScaledTileSize( ) ) ) + 1;
 		}// if ( this.tileGridBounds.getHeight( ) == 0 ).
-		return ( int ) ( Math.round( this.tileGridBounds.getHeight( ) / ( double ) Tile.TILE_SIZE_PX ) );
+		return ( int ) ( Math.round( this.tileGridBounds.getHeight( ) / this.getScaledTileSize( ) ) );
 	}
 
 	private void paint( Graphics2D gr )
@@ -916,6 +948,10 @@ public class MapImage extends Canvas implements TileLoaderListener
 					gr.drawRect( x0, y0, width, height );
 					gr.drawString( "OuterExtViewPort: Pos=(" + x0 + "," + y0 + "), Size=(" + width + "," + height + ")", 10, 80 );
 					gr.drawString( "MapCenter: (" + this.mapCenter.getFormatted( ), 10, 100 );
+
+					// draw the bounds of the tile-grid
+					gr.setColor( Color.RED );
+					gr.drawRect( ( int ) this.tileGridBounds.getX( ), ( int ) this.tileGridBounds.getY( ), ( int ) this.tileGridBounds.getWidth( ), ( int ) this.tileGridBounds.getHeight( ) );
 
 				}// if ( DRAW_VIEWPORTS ).
 				gr.dispose( );
