@@ -57,6 +57,10 @@ import thobe.mapview.kernel.tilesystem.Tile;
 @SuppressWarnings ( "serial")
 public class MapImage extends Canvas implements TileLoaderListener
 {
+	private static double				MIN_SCALE_FACTOR					= 0.7;
+	private static double				MAX_SCALE_FACTOR					= 1.3;
+	private static int					MIN_ZOOM_LEVEL						= 1;
+	private static int					MAX_ZOOM_LEVEL						= 18;
 	private static boolean				DBG;
 	private static boolean				DRAW_VIEWPORTS;
 	private static final Color			DEBUG_COLOR							= Color.BLACK;
@@ -220,27 +224,35 @@ public class MapImage extends Canvas implements TileLoaderListener
 			public void mouseWheelMoved( MouseWheelEvent e )
 			{
 
-				/* mousewheel --> zoom-mode */
+				// Mousewheel --> zoom
 				if ( e.getScrollType( ) == MouseWheelEvent.WHEEL_UNIT_SCROLL )
 				{
+					// Move to origin (0,0) by removing the translation.
+					// We have to apply the scale if the scene is in origin of the coordinate-system
+					// to avoid squeezing the scene or to loose aspect-ratio.
 					AffineTransform tra = new AffineTransform( );
 					tra.translate( -e.getX( ), -e.getY( ) );
-
 					camera.preConcatenate( tra );
 
+					// Determine the scale-factor.
 					float factor = 1 + ( e.getWheelRotation( ) / 10.0f );
 
+					// Scale the scene using the computed scale-factor.
 					AffineTransform sc = new AffineTransform( );
 					sc.scale( factor, factor );
 					camera.preConcatenate( sc );
 
+					// Now (after scaling) move the scene back to its position (by applying the translation).
 					tra.setToIdentity( );
 					tra.translate( e.getX( ), e.getY( ) );
 					camera.preConcatenate( tra );
+
+					// Update the tiles and repaint all.
+					updateZoomLevel( );
 					updateTileGrid( );
 					createTileRequests( );
-				}
-				repaint( );
+					repaint( );
+				}// if ( e.getScrollType( ) == MouseWheelEvent.WHEEL_UNIT_SCROLL ).
 			}
 		} );
 
@@ -249,50 +261,57 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 			public void mousePressed( MouseEvent e )
 			{
-
+				// Change state only if no special state is currently active.
 				if ( cameraState == CameraState.NORMAL )
 				{
-					/* click right mouse button --> enter pan-mode */
+					// Click right mouse button --> enter pan-mode.
 					if ( e.getButton( ) == MouseEvent.BUTTON3 )
 					{
 						cameraState = CameraState.PAN;
 						mx = e.getX( );
 						my = e.getY( );
 						saved_cam = new AffineTransform( camera );
-					}
+					}// if ( e.getButton( ) == MouseEvent.BUTTON3 ).
 
-					/* click middle mouse button + press ctrl --> enter zoom-mode */
+					// Click middle mouse button + press ctrl --> enter zoom-mode 
 					if ( ( e.isControlDown( ) ) && ( e.getButton( ) == MouseEvent.BUTTON2 ) )
 					{
 						cameraState = CameraState.ZOOM;
 						mx = e.getX( );
 						my = e.getY( );
 						saved_cam = new AffineTransform( camera );
-					}
-				}
+					}// if ( ( e.isControlDown( ) ) && ( e.getButton( ) == MouseEvent.BUTTON2 ) ).
+				}// if ( cameraState == CameraState.NORMAL ).
+
+				// Decrease renderquality in special camera-states.
 				if ( cameraState != CameraState.NORMAL )
+				{
 					setRenderQuality( RENDER_QUALITY_LOW );
+				}// if ( cameraState != CameraState.NORMAL ).
 
 				if ( cameraState != CameraState.PAN && cameraState != CameraState.ZOOM )
 				{
-					// mouse pressed
+					// Mouse clicked/pressed
+					// TODO: Delegate to listeners
 				}
 			}
 
 			public void mouseReleased( MouseEvent e )
 			{
-				/* middle mouse button released */
+				// Middle mouse button released.
 				if ( e.getButton( ) == MouseEvent.BUTTON2 || e.getButton( ) == MouseEvent.BUTTON3 )
 				{
 					if ( ( cameraState == CameraState.PAN ) || ( cameraState == CameraState.ZOOM ) )
 					{
-						//MapImage.this.mapCenter = nextMapCenter;
 						cameraState = CameraState.NORMAL;
 					}
-				}
+				}// if ( e.getButton( ) == MouseEvent.BUTTON2 || e.getButton( ) == MouseEvent.BUTTON3 ).
 
+				// Increase renderquality in non-special camera-states.
 				if ( cameraState == CameraState.NORMAL )
+				{
 					setRenderQuality( RENDER_QUALITY_HIGH );
+				}// if ( cameraState == CameraState.NORMAL ).
 				repaint( );
 			}
 		} );
@@ -302,7 +321,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 			public void mouseDragged( MouseEvent e )
 			{
 
-				/*  if in pan mode, translate according to mouse movement */
+				//  If in pan mode, translate according to mouse movement 
 				if ( cameraState == CameraState.PAN )
 				{
 					double newX = ( e.getX( ) - mx ) / camera.getScaleX( );
@@ -312,41 +331,45 @@ public class MapImage extends Canvas implements TileLoaderListener
 					camera.translate( newX, newY );
 
 					// update view/ tiles
+					updateZoomLevel( );
 					updateTileGrid( );
 					createTileRequests( );
 					repaint( );
-				}// if ( state == 1 ).
+				}// if ( cameraState == CameraState.PAN ).
 
-				/* in zoom mode, zoom in if mouse moved up and zoom out if mouse moved down with pivot
-				 point at the window coordinates the mouse was initially pressed */
+				// In zoom mode, zoom in if mouse moved up and zoom out if mouse moved down with pivot
+				// point at the window coordinates the mouse was initially pressed.
 				if ( cameraState == CameraState.ZOOM )
 				{
 					camera = new AffineTransform( saved_cam );
 
+					// Move to origin (0,0) by removing the translation.
+					// We have to apply the scale if the scene is in origin of the coordinate-system
+					// to avoid squeezing the scene or to loose aspect-ratio.
 					AffineTransform tra = new AffineTransform( );
 					tra.translate( -mx, -my );
-
 					camera.preConcatenate( tra );
 
+					// Determine the scale-factor.
 					float factor = 1.0f + Math.abs( my - e.getY( ) ) / 50.0f;
-
 					if ( e.getY( ) > my )
 					{
 						factor = 1 / factor;
 					}
+
+					// Scale the scene using the computed scale-factor.
 					AffineTransform sc = new AffineTransform( );
 					sc.scale( factor, factor );
 					camera.preConcatenate( sc );
 
+					// Now (after scaling) move the scene back to its position (by applying the translation).
 					tra.setToIdentity( );
 					tra.translate( mx, my );
 					camera.preConcatenate( tra );
 
-					repaint( );
-				}
-
-				if ( cameraState != CameraState.ZOOM && cameraState != CameraState.PAN )
-				{
+					// update view/ tiles
+					updateTileGrid( );
+					createTileRequests( );
 					repaint( );
 				}
 			}
@@ -609,6 +632,83 @@ public class MapImage extends Canvas implements TileLoaderListener
 		}// else if (( delta > 0 ) && ( delta > scaledTileSize )).
 
 		return missingGridElements;
+	}
+
+	private void updateZoomLevel( )
+	{
+		String dbgInfo = "scaleFactor=" + this.camera.getScaleX( ) + ", zoomLevel=" + this.zoomLevel;
+		boolean bZoomLevelModified = false;
+		boolean bScaleFactorModified = false;
+
+		double newScale = this.camera.getScaleX( );
+
+		// Update/modify the zoom-level if the minimum scale factor was undershoot.
+		if ( this.camera.getScaleX( ) <= MIN_SCALE_FACTOR )
+		{
+			// Adjust the zoom-level only if we are not currently at min-zoom-level.
+			if ( this.zoomLevel > MIN_ZOOM_LEVEL )
+			{
+				this.zoomLevel--;
+				newScale = 1;
+				bZoomLevelModified = true;
+			}// if ( this.zoomLevel > MIN_ZOOM_LEVEL ).
+			else
+			{
+				// Stick zoomlevel to min value
+				newScale = MIN_SCALE_FACTOR;
+			}// if ( this.zoomLevel > MIN_ZOOM_LEVEL ) ... else ...
+			bScaleFactorModified = true;
+		}// if ( this.camera.getScaleX( ) <= MIN_SCALE_FACTOR ).
+
+		// Update/modify the zoom-level if the maximum scale factor was overshoot.
+		if ( this.camera.getScaleX( ) >= MAX_SCALE_FACTOR )
+		{
+			// Adjust the zoom-level only if we are not currently at max-zoom-level.
+			if ( this.zoomLevel < MAX_ZOOM_LEVEL )
+			{
+				this.zoomLevel++;
+				newScale = 1;
+				bZoomLevelModified = true;
+			}// if ( this.zoomLevel < MAX_ZOOM_LEVEL ).
+			else
+			{
+				// Stick zoomlevel to max value
+				newScale = MAX_SCALE_FACTOR;
+			}// if ( this.zoomLevel > MIN_ZOOM_LEVEL ) ... else ...
+			bScaleFactorModified = true;
+		}// if ( this.camera.getScaleX( ) >= MAX_SCALE_FACTOR ).
+
+		if ( bScaleFactorModified )
+		{
+			// Save translation.
+			double camX = camera.getTranslateX( );
+			double camY = camera.getTranslateY( );
+			camera.setToIdentity( );
+
+			// Scale the scene using the computed scale-factor.
+			AffineTransform sc = new AffineTransform( );
+			sc.scale( newScale, newScale );
+			camera.preConcatenate( sc );
+
+			// Now (after scaling) move the scene back to its position (by applying the translation).
+			AffineTransform tra = new AffineTransform( );
+			tra.setToIdentity( );
+			tra.translate( camX, camY );
+			camera.preConcatenate( tra );
+		}// if ( bScaleFactorModified ).
+
+		// Invalidate all view-port tiles in case we have a new zoom-level.
+		if ( bZoomLevelModified )
+		{
+			for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
+			{
+				entry.getValue( ).setValid( false );
+			}
+
+			dbgInfo += " -->scaleFactor=" + this.camera.getScaleX( ) + ", zoomLevel=" + this.zoomLevel;
+			if ( DBG )
+				this.log.info( dbgInfo );
+		}// if ( bZoomLevelModified ).
 	}
 
 	/**
