@@ -70,7 +70,7 @@ public class MercatorProjection
 		ytile = 1 - ytile;
 		ytile = numberOfTiles * ( ytile / 2d );
 
-		return new TileNumber( xtile, ytile );
+		return new TileNumber( xtile, ytile, zoom );
 	}
 
 	/**
@@ -134,13 +134,115 @@ public class MercatorProjection
 		return new Point2D.Double( pixelX, pixelY );
 	}
 
-	public static GeoCoord computeDeltaGeoCoord( GeoCoord geoCoord, int zoom, int deltaPx )
+	public static double latitutdeToYOnWorldMap( double latitude, int zoom )
 	{
-		// compute the pixel-coordinate of the given GeoCoordinate on the world map 
-		Point2D geoCoordOnWorldMap = MercatorProjection.geoCoordToPixelOnWorldMap( geoCoord, zoom );
+		// latitude range -85.05112878 to 85.05112878 degree
+		double latitudeTmp = max( latitude, -85.05112878d );
+		latitudeTmp = min( latitudeTmp, 85.05112878 );
+
+		int mapSize = getMapSize( zoom );
+
+		// sinLatitude = sin(latitude * pi/180)
+		// pixelY = (0.5 – log((1 + sinLatitude) / (1 – sinLatitude)) / (4 * pi)) * 256 * 2 level
+		double sinLatitude = sin( toRadians( latitudeTmp ) );
+		double pixelY = ( 1d + sinLatitude ) / ( 1d - sinLatitude );
+
+		pixelY = log( pixelY ) / ( 4d * PI );
+		pixelY = 0.5d - pixelY;
+		pixelY = pixelY * mapSize;
+
+		return pixelY;
+	}
+
+	public static double longitudeToXOnWorldMap( double logitude, int zoom )
+	{
+		// longitude range -180 to 180 degree
+		double longitudeTmp = max( logitude, -180d );
+		longitudeTmp = min( longitudeTmp, 180d );
+
+		int mapSize = getMapSize( zoom );
+
+		// pixelX = ((longitude + 180) / 360) * 256 * 2 level
+		double pixelX = ( longitudeTmp + 180d ) / 360d;
+		pixelX = pixelX * mapSize;
+
+		return pixelX;
+	}
+
+	public static double computeDeltaLatitude( double latitude, int zoom, int deltaPxY )
+	{
+		// Compute the pixel-coordinate of the given GeoCoordinate on the world map 
+		double yOnWorldMap = MercatorProjection.latitutdeToYOnWorldMap( latitude, zoom );
+
+		// Computes the pixel-coordinate of the original position moved by x-Pixel on the world-map. 
+		double movedY = yOnWorldMap + deltaPxY;
+
+		int sizeOfWorldMap = getMapSize( zoom );
+
+		// Return 0 if the resulting coordinate is not on the map.
+		if ( sizeOfWorldMap < movedY )
+		{
+			return 0;
+		}// if ( sizeOfWorldMap < movedY ).
 
 		// compute the GeoCoord moved by delta
-		GeoCoord movedGeoCoord = MercatorProjection.pixelCoordOnWorldMapToGeoCoord( new Point2D.Double( geoCoordOnWorldMap.getX( ) + deltaPx, geoCoordOnWorldMap.getY( ) + deltaPx ), zoom );
+		double movedLatitude = MercatorProjection.yPosOnWorldMapToLatitude( movedY, zoom );
+
+		double dLatitude = Math.abs( movedLatitude - latitude );
+
+		System.out.println( "latitude=" + latitude + " -> yOnWorldMap=" + yOnWorldMap + " -> movedY=" + movedY + " -> movedLatitude=" + movedLatitude + " -> dLatitude=" + dLatitude );
+		return dLatitude;
+	}
+
+	public static double computeDeltaLongitude( double longitude, int zoom, int deltaPxX )
+	{
+		// Compute the pixel-coordinate of the given GeoCoordinate on the world map 
+		double xOnWorldMap = MercatorProjection.longitudeToXOnWorldMap( longitude, zoom );
+
+		// Computes the x-coordinate of the original position moved by x-Pixel on the world-map. 
+		double movedX = xOnWorldMap + deltaPxX;
+
+		int sizeOfWorldMap = getMapSize( zoom );
+
+		// return 0 if the resulting/moved coordinate is not on the map.
+		if ( sizeOfWorldMap < movedX )
+		{
+			return 0;
+		}// if ( sizeOfWorldMap < movedX ).
+
+		// compute the GeoCoord moved by delta
+		double movedLongitude = MercatorProjection.xPosOnWorldMapToLongitude( movedX, zoom );
+
+		double dLongitude = Math.abs( movedLongitude - longitude );
+		return dLongitude;
+	}
+
+	public static GeoCoord computeDeltaGeoCoord( GeoCoord geoCoord, int zoom, int deltaPx ) throws CoordinateNotOnMapException
+	{
+		// Compute the pixel-coordinate of the given GeoCoordinate on the world map 
+		Point2D pixelCoordOnWorldMap = MercatorProjection.geoCoordToPixelOnWorldMap( geoCoord, zoom );
+
+		// Computes the pixel-coordinate of the original position moved by x-Pixel on the world-map. 
+		Point2D movedPixelCoordOnWorldMap = new Point2D.Double( pixelCoordOnWorldMap.getX( ) + deltaPx, pixelCoordOnWorldMap.getY( ) + deltaPx );
+
+		int sizeOfWorldMap = getMapSize( zoom );
+
+		// throw an exception if the coordinate could not be computed since its not on the map
+		if ( ( sizeOfWorldMap < movedPixelCoordOnWorldMap.getX( ) ) || ( sizeOfWorldMap < movedPixelCoordOnWorldMap.getY( ) ) )
+		{
+			throw new CoordinateNotOnMapException( movedPixelCoordOnWorldMap, zoom );
+		}// if ( ( sizeOfWorldMap < movedPixelCoordOnWorldMap.getX( ) ) || ( sizeOfWorldMap < movedPixelCoordOnWorldMap.getY( ) ) ) .
+
+		System.out.print( "origGC=" + geoCoord + " -> pixCoordOnWM=" + pixelCoordOnWorldMap );
+
+		// compute the GeoCoord moved by delta
+		GeoCoord movedGeoCoord = MercatorProjection.pixelCoordOnWorldMapToGeoCoord( new Point2D.Double( pixelCoordOnWorldMap.getX( ) + deltaPx, pixelCoordOnWorldMap.getY( ) + deltaPx ), zoom );
+
+		System.out.print( " --> gc=" + movedGeoCoord );
+
+		GeoCoord result = movedGeoCoord.subtract( geoCoord ).abs( );
+
+		System.out.println( " --> result=" + result );
 
 		// return the difference between the original and the moved geoCoordinate
 		return movedGeoCoord.subtract( geoCoord ).abs( );
@@ -203,6 +305,31 @@ public class MercatorProjection
 		double longitude = 360d * pixelX;
 
 		return new GeoCoord( latitude, longitude );
+	}
+
+	public static double yPosOnWorldMapToLatitude( double pixelY, int zoom )
+	{
+		int mapSize = getMapSize( zoom );
+
+		// clip to map
+		pixelY = max( min( pixelY, mapSize - 1 ), 0 );
+		pixelY = 0.5d - ( pixelY / ( double ) mapSize );
+
+		double latitude = 90d - 360d * atan( exp( -pixelY * 2d * PI ) ) / PI;
+
+		return latitude;
+	}
+
+	public static double xPosOnWorldMapToLongitude( double pixelX, int zoom )
+	{
+		int mapSize = getMapSize( zoom );
+
+		// clip to map
+		pixelX = max( min( pixelX, mapSize - 1 ), 0 );
+		pixelX = ( pixelX / mapSize ) - 0.5d;
+		double longitude = 360d * pixelX;
+
+		return longitude;
 	}
 
 	/**
@@ -329,9 +456,6 @@ public class MercatorProjection
 	 * @param tileNumber - the {@link TileNumber}
 	 * @param zoom - the current zoom level
 	 * @return
-	 * @deprecated Can only be used on a tile-based system. Unfortunately the static-maps API returns the image not based/matched in its
-	 *             tile-system-grid but returns an image that
-	 *             is centered at the requested geo-coordinate.
 	 */
 	public static GeoCoord tileNumberToGeoCoord( TileNumber tileNumber, int zoom )
 	{

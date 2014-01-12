@@ -14,6 +14,7 @@ import java.net.URL;
 import java.util.List;
 
 import thobe.mapview.kernel.tilesystem.GeoCoord;
+import thobe.mapview.kernel.tilesystem.TileNumber;
 
 /**
  * {@link MapURLBuilder} implementation (for OpenStreetMaps) that enables to build {@link URL}s for loading static map-images from
@@ -70,6 +71,12 @@ public class OSMStaticMapLite extends OpenStreetMapURLBuilder
 		}//	if ( !markers.isEmpty( ) ). 
 
 		return new URL( URLBase + query );
+	}
+
+	@Override
+	public URL buildURL( TileNumber tileNumber, int zoomLevel, MapType mapType ) throws MalformedURLException
+	{
+		throw new IllegalArgumentException("Not supported.");
 	}
 
 }

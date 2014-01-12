@@ -42,12 +42,15 @@ import thobe.mapview.kernel.mapprovider.GoogleMapURLBuilder;
 import thobe.mapview.kernel.mapprovider.MapProvider;
 import thobe.mapview.kernel.mapprovider.MapURLBuilder;
 import thobe.mapview.kernel.mapprovider.OSMStaticMapLite;
+import thobe.mapview.kernel.mapprovider.OSMTileBased;
 import thobe.mapview.kernel.tileloader.TileLoader;
 import thobe.mapview.kernel.tileloader.TileLoaderListener;
 import thobe.mapview.kernel.tileloader.TileRequest;
+import thobe.mapview.kernel.tilesystem.CoordinateNotOnMapException;
 import thobe.mapview.kernel.tilesystem.GeoCoord;
 import thobe.mapview.kernel.tilesystem.MercatorProjection;
 import thobe.mapview.kernel.tilesystem.Tile;
+import thobe.mapview.kernel.tilesystem.TileNumber;
 
 /**
  * @author Thomas Obenaus
@@ -100,9 +103,9 @@ public class MapImage extends Canvas implements TileLoaderListener
 	private MapProvider					mapProvider;
 
 	/**
-	 * The {@link GeoCoord} representing the center of the map.
+	 * The {@link TileNumber} representing the center of the map.
 	 */
-	private GeoCoord					mapCenter;
+	private TileNumber					tileNumberOfMapCenter;
 
 	/**
 	 * Current zoom-level.
@@ -210,7 +213,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 		this.tileLoader.addListener( this );
 		this.tileLoader.start( );
 
-		this.mapCenter = mapCenter;
+		this.tileNumberOfMapCenter = MercatorProjection.geoCoordToTileNumber( mapCenter, zoomLevel );
 		this.zoomLevel = zoomLevel;
 		this.mapProvider = mapProvider;
 		this.viewPortTiles = new HashMap<>( );
@@ -390,7 +393,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	 */
 	public MapImage( int viewPortWidth, int viewPortHeight, Logger logger )
 	{
-		this( viewPortWidth, viewPortHeight, new GeoCoord( ), 12, MapProvider.OSMStaticMapLite, logger );
+		this( viewPortWidth, viewPortHeight, new GeoCoord( 64.99, 23.437 ), 8, MapProvider.OSMStaticMapLite, logger );
 	}
 
 	/**
@@ -488,6 +491,9 @@ public class MapImage extends Canvas implements TileLoaderListener
 		{
 		case GOOGLE:
 			this.urlBuilder = new GoogleMapURLBuilder( );
+			break;
+		case OSMTileBased:
+			this.urlBuilder = new OSMTileBased( );
 			break;
 		case BING:
 		case OSMStaticMapLite:
@@ -754,8 +760,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 		if ( DBG )
 		{
-			log.info( "numberOfVisibleColumns=" + numberOfVisibleColumns + ", numberOfVisibleRows=" + numberOfVisibleRows + ", idxOfFirstColumn=" + column0 + ", idxOfFirstRow=" + row0 + ", idxOfLastColumn=" + idxOfLastColumn + ", idxOfLastRow=" + idxOfLastRow );
-			log.info( "tileGridBounds=" + rectToString( this.tileGridBounds ) );
+			log.fine( "numberOfVisibleColumns=" + numberOfVisibleColumns + ", numberOfVisibleRows=" + numberOfVisibleRows + ", idxOfFirstColumn=" + column0 + ", idxOfFirstRow=" + row0 + ", idxOfLastColumn=" + idxOfLastColumn + ", idxOfLastRow=" + idxOfLastRow );
+			log.fine( "tileGridBounds=" + rectToString( this.tileGridBounds ) );
 		}
 
 		// compute column and row of the Tile containing the center of the map.
@@ -768,17 +774,11 @@ public class MapImage extends Canvas implements TileLoaderListener
 		if ( ( newPotentialMapCenterTile != null ) && ( newPotentialMapCenterTile != this.mapCenterTile ) )
 		{
 			this.mapCenterTile = newPotentialMapCenterTile;
-			this.mapCenter = this.mapCenterTile.getCenter( );
+			this.tileNumberOfMapCenter = this.mapCenterTile.getTileNumber( );
 
 			if ( DBG )
 				log.fine( "Tile [" + this.mapCenterTile.getTileId( ) + "] Is the new Tile containing the map-center (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
 		}// if ( ( newPotentialMapCenterTile != null ) && ( newPotentialMapCenterTile != this.mapCenterTile ) ).
-
-		// Compute the delta/difference if a GeoCoordinate will be moved by n pixel (size of one tile).
-		// This value is used to compute the GeoCoordinates of the Tiles surrounding the Tile that contains the map-center.
-		// For example the GeoCoord for the Tile on the left side of the "map-center Tile" is
-		// GeoCoord left = ( mapCenter.lat,mapCenter.long + delta.long )
-		GeoCoord deltaTileSize = MercatorProjection.computeDeltaGeoCoord( mapCenter, this.zoomLevel, Tile.TILE_SIZE_PX );
 
 		// 1. Create Tiles that are missing (where not created yet but are visible on the map).
 		// 2. Update geo-coordinates and zoom-level of existing Tiles. 
@@ -791,6 +791,12 @@ public class MapImage extends Canvas implements TileLoaderListener
 				String tileId = Tile.colRowToTileId( column, row );
 				Tile tile = this.viewPortTiles.get( tileId );
 
+				// Determine the distance (number of columns/rows) of this Tile to the Tile containing the map-center.
+				int columnOffset = column - columnOfMapCenter;
+				int rowOffset = row - rowOfMapCenter;
+
+				TileNumber tileNumberOfCurrentTile = new TileNumber( tileNumberOfMapCenter.getX( ) + columnOffset, tileNumberOfMapCenter.getY( ) + rowOffset, this.zoomLevel );
+
 				// tile does not exist yet --> create it
 				if ( tile == null )
 				{
@@ -800,31 +806,17 @@ public class MapImage extends Canvas implements TileLoaderListener
 						log.fine( "Tile [" + tile.getTileId( ) + "] created and added." );
 				}// if ( tile == null ).
 
+				// Apply computed TileNumber 
+				tile.setTileNumber( tileNumberOfCurrentTile );
+				tile.setValid( false );
+
 				// tile containing the map-center found
 				if ( ( column == columnOfMapCenter ) && ( row == rowOfMapCenter ) )
 				{
 					this.mapCenterTile = tile;
 					if ( DBG )
-						log.fine( "Tile [" + tile.getTileId( ) + "] contains the center of the Map (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
+						log.info( "Tile [" + tile.getTileId( ) + "] contains the center of the Map (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
 				}// if ( ( col == columnOfMapCenter ) && ( row == rowOfMapCenter ) ).
-
-				// Determine the distance (number of columns/rows) of this Tile to the Tile containing the map-center.
-				int columnDistance = column - columnOfMapCenter;
-				int rowDistance = row - rowOfMapCenter;
-
-				// Compute the GeoCoordinate of this Tile using the computed distance to the "map-center Tile" and the previously
-				// computed "deltaTileSize". 
-				// The latitude of the new Tile is: tile.lat = mapCenter.lat - (delta.lat*rowDist)
-				// We have to subtract the computed delta because the latitude runs from north to south when its increased (e.g. 50,10 is north of 51,10 )
-				// and the y of image-coordinates runs from south to north on increasing it.  
-				double latitude = mapCenter.getLatitude( ) - ( deltaTileSize.getLatitude( ) * rowDistance );
-				// The longitude of the new Tile is: tile.lon = mapCenter.lon + (delta.lon*colDist)
-				// We can simply add the computed delta-distance. The longitude runs from west to east as well as the x of the image-coordinate.
-				double longitude = mapCenter.getLongitude( ) + ( deltaTileSize.getLongitude( ) * columnDistance );
-
-				// Apply computed GeoCoord and zoom-level 
-				tile.setCenter( new GeoCoord( latitude, longitude ) );
-				tile.setZoomLevel( zoomLevel );
 
 				// next column (update x-coordinate)
 				x += Tile.TILE_SIZE_PX;
@@ -858,6 +850,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 		}// if(this.viewPortTiles.size( ) > toRemove.size( )).
 
 		this.updateTileGridBounds( );
+
 	}
 
 	/**
@@ -905,9 +898,9 @@ public class MapImage extends Canvas implements TileLoaderListener
 		for ( Map.Entry<String, Tile> entry : this.viewPortTiles.entrySet( ) )
 		{
 			Tile viewPortTile = entry.getValue( );
-			if ( !viewPortTile.isValid( ) )
+			if ( !viewPortTile.isValid( ) && !viewPortTile.isEmptyTile( ) )
 			{
-				tileRequests.add( new TileRequest( this.log, this.urlBuilder, viewPortTile.getTileId( ), viewPortTile.getCenter( ), viewPortTile.getZoomLevel( ) ) );
+				tileRequests.add( new TileRequest( this.log, this.urlBuilder, viewPortTile.getTileId( ), viewPortTile.getTileNumber( ) ) );
 
 				if ( DBG )
 					log.fine( "Tile [" + viewPortTile.getTileId( ) + "] Request started: geoCoord=" + viewPortTile.getCenter( ).getFormatted( ) );
@@ -1047,7 +1040,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 					height = ( int ) this.outerExtViewPort.getHeight( );
 					gr.drawRect( x0, y0, width, height );
 					gr.drawString( "OuterExtViewPort: Pos=(" + x0 + "," + y0 + "), Size=(" + width + "," + height + ")", 10, 80 );
-					gr.drawString( "MapCenter: (" + this.mapCenter.getFormatted( ), 10, 100 );
+					gr.drawString( "MapCenter: (" + this.tileNumberOfMapCenter.getCenter( ).getFormatted( ), 10, 100 );
 
 					// draw the bounds of the tile-grid
 					gr.setColor( Color.RED );

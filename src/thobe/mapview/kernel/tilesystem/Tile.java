@@ -32,8 +32,15 @@ public class Tile implements Cloneable
 
 	private static Image		defaultImg;
 
+	private static Image		emptyImg;
+
 	/**
-	 * create the default image (LIGHT_GRAY)
+	 * Default number for the {@link Tile} at Greenwich
+	 */
+	private static TileNumber	defaultTileNumber;
+
+	/**
+	 * create the default (LIGHT_GRAY) and empty image (blue)
 	 */
 	static
 	{
@@ -41,22 +48,19 @@ public class Tile implements Cloneable
 		Graphics2D gr = ( ( BufferedImage ) defaultImg ).createGraphics( );
 		gr.setColor( Color.LIGHT_GRAY );
 		gr.fillRect( 0, 0, TILE_SIZE_PX, TILE_SIZE_PX );
+
+		emptyImg = new BufferedImage( TILE_SIZE_PX, TILE_SIZE_PX, BufferedImage.TYPE_INT_ARGB );
+		gr = ( ( BufferedImage ) emptyImg ).createGraphics( );
+		gr.setColor( Color.gray );
+		gr.fillRect( 0, 0, TILE_SIZE_PX, TILE_SIZE_PX );
+
+		defaultTileNumber = new TileNumber( 2048, 1362, 12 );
 	}
 
 	/**
 	 * The image representing this {@link Tile}
 	 */
 	private Image				image;
-
-	/**
-	 * The center of this {@link Tile}
-	 */
-	private GeoCoord			center;
-
-	/**
-	 * The zoom-level
-	 */
-	private int					zoomLevel;
 
 	/**
 	 * Position (X) within the MapImage.
@@ -76,8 +80,13 @@ public class Tile implements Cloneable
 	private boolean				valid;
 	private Rectangle2D			bounds;
 
+	private boolean				emptyTile;
+
+	private TileNumber			tileNumber;
+
 	public Tile( String id, int x, int y )
 	{
+		this.emptyTile = false;
 		this.valid = false;
 		this.column = tileIdToColumn( id );
 		this.row = tileIdToRow( id );
@@ -87,8 +96,30 @@ public class Tile implements Cloneable
 		this.tileId = id;
 
 		this.image = null;
-		this.center = new GeoCoord( );
-		this.zoomLevel = 12;
+		this.tileNumber = defaultTileNumber;
+	}
+
+	public void setTileNumber( TileNumber tileNumber )
+	{
+		if ( tileNumber != null )
+			this.tileNumber = tileNumber;
+		// Permit a invalid (null) TileNumber
+		else this.tileNumber = defaultTileNumber;
+	}
+
+	public TileNumber getTileNumber( )
+	{
+		return tileNumber;
+	}
+
+	public void setEmptyTile( boolean emptyTile )
+	{
+		this.emptyTile = emptyTile;
+	}
+
+	public boolean isEmptyTile( )
+	{
+		return emptyTile;
 	}
 
 	public static String colRowToTileId( int column, int row )
@@ -123,16 +154,6 @@ public class Tile implements Cloneable
 		return tileId;
 	}
 
-	public void setCenter( GeoCoord center )
-	{
-		this.center = center;
-	}
-
-	public void setZoomLevel( int zoomLevel )
-	{
-		this.zoomLevel = zoomLevel;
-	}
-
 	public int getColumn( )
 	{
 		return column;
@@ -155,7 +176,7 @@ public class Tile implements Cloneable
 
 	public GeoCoord getCenter( )
 	{
-		return center;
+		return this.tileNumber.getCenter( );
 	}
 
 	public synchronized void setImage( Image image )
@@ -175,7 +196,7 @@ public class Tile implements Cloneable
 
 	public int getZoomLevel( )
 	{
-		return zoomLevel;
+		return this.tileNumber.getZoom( );
 	}
 
 	public Rectangle2D getBounds( )
@@ -190,15 +211,17 @@ public class Tile implements Cloneable
 	 */
 	public synchronized Image getImage( )
 	{
+		if ( this.emptyTile )
+			return emptyImg;
 		if ( this.image == null )
 			return defaultImg;
-		return image;
+		return this.image;
 	}
 
 	@Override
 	public String toString( )
 	{
-		return "[" + this.tileId + "|" + x + "," + y + "|" + this.center.getFormatted( ) + "]";
+		return "[" + this.tileId + "|" + x + "," + y + "|" + this.getCenter( ).getFormatted( ) + "]";
 	}
 
 	public Object clone( )

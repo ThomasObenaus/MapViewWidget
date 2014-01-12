@@ -11,8 +11,7 @@ package thobe.mapview.kernel.tilesystem;
 
 /**
  * Class representing an index to address a tile (bing/osm/google tilesystem) or a coordinate within a tile. A {@link TileNumber}
- * corresponds to a {@link GeoCoord} at a specific
- * zoom-level of the map.
+ * corresponds to a {@link GeoCoord} at a specific zoom-level of the map.
  * @author Thomas Obenaus
  */
 public class TileNumber
@@ -21,18 +20,44 @@ public class TileNumber
 	 * x-coordinate of the tile. This coordinate consists of the index of the tile (integer part) and the position of a geocoordinate within
 	 * this tile (fractional part).
 	 */
-	private double	xTile;
+	private double		xTile;
 
 	/**
 	 * y-coordinate of the tile. This coordinate consists of the index of the tile (integer part) and the position of a geocoordinate within
 	 * this tile (fractional part).
 	 */
-	private double	yTile;
+	private double		yTile;
 
-	public TileNumber( double xTile, double yTile )
+	/**
+	 * The zoom-level this {@link TileNumber} is valid for.
+	 */
+	private int			zoom;
+
+	/**
+	 * Returns the center of the {@link Tile} represented by this {@link TileNumber} at a given zoom-level.
+	 */
+	private GeoCoord	center;
+
+	public TileNumber( double xTile, double yTile, int zoom )
 	{
 		this.xTile = xTile;
 		this.yTile = yTile;
+		this.zoom = zoom;
+		this.center = MercatorProjection.tileNumberToGeoCoord( this, this.zoom );
+	}
+
+	/**
+	 * Returns the center of the {@link Tile} represented by this {@link TileNumber}.
+	 * @return
+	 */
+	public GeoCoord getCenter( )
+	{
+		return this.center;
+	}
+
+	public int getZoom( )
+	{
+		return zoom;
 	}
 
 	public double getX( )

@@ -15,5 +15,5 @@ package thobe.mapview.kernel.mapprovider;
  */
 public enum MapProvider
 {
-	GOOGLE, BING, OSMStaticMapLite;
+	GOOGLE, BING, OSMStaticMapLite,OSMTileBased;
 }

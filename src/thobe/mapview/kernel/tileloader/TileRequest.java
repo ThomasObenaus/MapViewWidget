@@ -20,8 +20,8 @@ import javax.imageio.ImageIO;
 
 import thobe.mapview.kernel.mapprovider.MapProvider;
 import thobe.mapview.kernel.mapprovider.MapURLBuilder;
-import thobe.mapview.kernel.tilesystem.GeoCoord;
 import thobe.mapview.kernel.tilesystem.Tile;
+import thobe.mapview.kernel.tilesystem.TileNumber;
 
 /**
  * Class representing a {@link Runnable} that is able to load a {@link Tile} (a static map image) using a specific {@link MapProvider}.
@@ -33,23 +33,21 @@ public class TileRequest implements Runnable
 	private final int			MAX_RETRIES		= 2;
 
 	private Logger				logger;
-	private int					zoom;
 	private MapURLBuilder		urlBuilder;
-	private GeoCoord			tileCenter;
 	private String				tileId;
 	private Image				image;
 	private String				error;
 	private boolean				terminated;
+	private TileNumber			tileNumber;
 
-	public TileRequest( Logger logger, MapURLBuilder urlBuilder, String tileId, GeoCoord tileCenter, int zoom )
+	public TileRequest( Logger logger, MapURLBuilder urlBuilder, String tileId, TileNumber tileNumber )
 	{
+		this.tileNumber = tileNumber;
 		this.error = null;
 		this.image = null;
 		this.logger = logger;
 		this.urlBuilder = urlBuilder;
 		this.tileId = tileId;
-		this.tileCenter = tileCenter;
-		this.zoom = zoom;
 		this.terminated = false;
 	}
 
@@ -65,18 +63,16 @@ public class TileRequest implements Runnable
 		{
 			try
 			{
-				if ( this.tileCenter == null )
+				if ( this.tileNumber == null )
 					throw new IllegalArgumentException( "Center of tile is null." );
-				if ( this.zoom == -1 )
-					throw new IllegalArgumentException( "Zoom is invalid." );
 				if ( this.urlBuilder == null )
 					throw new IllegalArgumentException( "UrlBuilder is null." );
 
-				this.logger.fine( "Loading " + logPrefix( this.tileId ) + " (center=" + tileCenter.getFormatted( ) + ", size=" + Tile.TILE_SIZE_PX + "x" + Tile.TILE_SIZE_PX + ", zoom=" + this.zoom + ")" );
+				this.logger.info( "Loading " + logPrefix( this.tileId ) + "(tileNumber=" + this.tileNumber + ", center=" + this.tileNumber.getCenter( ).getFormatted( ) + ", size=" + Tile.TILE_SIZE_PX + "x" + Tile.TILE_SIZE_PX + ", zoom=" + this.tileNumber.getZoom( ) + ")" );
 
-				URL url = this.urlBuilder.buildURL( tileCenter, this.zoom, Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
+				URL url = this.urlBuilder.buildURL( this.tileNumber.getCenter( ), this.tileNumber.getZoom( ), Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
 
-				this.logger.fine( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
+				this.logger.info( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
 				URLConnection con = url.openConnection( );
 				con.setReadTimeout( READ_TIMEOUT );
 				con.setConnectTimeout( READ_TIMEOUT );
@@ -97,8 +93,9 @@ public class TileRequest implements Runnable
 				{
 					errorMsg = " " + e.getClass( ).getSimpleName( ) + ": " + e.getLocalizedMessage( );
 					completed = true;
+					this.logger.warning( " " + e.getClass( ).getSimpleName( ) + ": " + e.getLocalizedMessage( ) );
 				}
-				this.logger.warning( " " + e.getClass( ).getSimpleName( ) + ": " + e.getLocalizedMessage( ) );
+				this.logger.fine( " " + e.getClass( ).getSimpleName( ) + ": " + e.getLocalizedMessage( ) );
 				retries++;
 			}
 

@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import thobe.mapview.kernel.tilesystem.GeoCoord;
+import thobe.mapview.kernel.tilesystem.TileNumber;
 
 /**
  * Abstract class for creating an url for loading a static map-image (depends on the map-provider).
@@ -24,6 +25,8 @@ import thobe.mapview.kernel.tilesystem.GeoCoord;
 public abstract class MapURLBuilder
 {
 
+	public abstract URL buildURL( TileNumber tileNumber, int zoomLevel, MapType mapType ) throws MalformedURLException;
+	
 	/**
 	 * Create a {@link URL} from which a static map-image can be loaded.
 	 * @param center - the {@link GeoCoord} of the center of the image that should be loaded
