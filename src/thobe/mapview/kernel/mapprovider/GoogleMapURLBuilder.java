@@ -13,9 +13,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 
-import thobe.mapview.kernel.mapprovider.MapURLBuilder.URLQuery;
 import thobe.mapview.kernel.tilesystem.GeoCoord;
-import thobe.mapview.kernel.tilesystem.TileNumber;
 
 /**
  * {@link MapURLBuilder} implementation (for GoogleMaps) that enables to build {@link URL}s for loading static map-images from
@@ -74,11 +72,5 @@ public class GoogleMapURLBuilder extends MapURLBuilder
 
 		query.addParameter( "sensor", false );
 		return new URL( URLBase + query );
-	}
-
-	@Override
-	public URL buildURL( TileNumber tileNumber, int zoomLevel, MapType mapType ) throws MalformedURLException
-	{
-		throw new IllegalArgumentException("Not supported.");
 	}
 }

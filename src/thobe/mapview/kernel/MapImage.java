@@ -42,11 +42,9 @@ import thobe.mapview.kernel.mapprovider.GoogleMapURLBuilder;
 import thobe.mapview.kernel.mapprovider.MapProvider;
 import thobe.mapview.kernel.mapprovider.MapURLBuilder;
 import thobe.mapview.kernel.mapprovider.OSMStaticMapLite;
-import thobe.mapview.kernel.mapprovider.OSMTileBased;
 import thobe.mapview.kernel.tileloader.TileLoader;
 import thobe.mapview.kernel.tileloader.TileLoaderListener;
 import thobe.mapview.kernel.tileloader.TileRequest;
-import thobe.mapview.kernel.tilesystem.CoordinateNotOnMapException;
 import thobe.mapview.kernel.tilesystem.GeoCoord;
 import thobe.mapview.kernel.tilesystem.MercatorProjection;
 import thobe.mapview.kernel.tilesystem.Tile;
@@ -491,9 +489,6 @@ public class MapImage extends Canvas implements TileLoaderListener
 		{
 		case GOOGLE:
 			this.urlBuilder = new GoogleMapURLBuilder( );
-			break;
-		case OSMTileBased:
-			this.urlBuilder = new OSMTileBased( );
 			break;
 		case BING:
 		case OSMStaticMapLite:

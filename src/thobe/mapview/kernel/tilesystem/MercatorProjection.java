@@ -217,7 +217,7 @@ public class MercatorProjection
 		return dLongitude;
 	}
 
-	public static GeoCoord computeDeltaGeoCoord( GeoCoord geoCoord, int zoom, int deltaPx ) throws CoordinateNotOnMapException
+	public static GeoCoord computeDeltaGeoCoord( GeoCoord geoCoord, int zoom, int deltaPx )
 	{
 		// Compute the pixel-coordinate of the given GeoCoordinate on the world map 
 		Point2D pixelCoordOnWorldMap = MercatorProjection.geoCoordToPixelOnWorldMap( geoCoord, zoom );
@@ -230,7 +230,7 @@ public class MercatorProjection
 		// throw an exception if the coordinate could not be computed since its not on the map
 		if ( ( sizeOfWorldMap < movedPixelCoordOnWorldMap.getX( ) ) || ( sizeOfWorldMap < movedPixelCoordOnWorldMap.getY( ) ) )
 		{
-			throw new CoordinateNotOnMapException( movedPixelCoordOnWorldMap, zoom );
+			return new GeoCoord( 0, 0 );
 		}// if ( ( sizeOfWorldMap < movedPixelCoordOnWorldMap.getX( ) ) || ( sizeOfWorldMap < movedPixelCoordOnWorldMap.getY( ) ) ) .
 
 		System.out.print( "origGC=" + geoCoord + " -> pixCoordOnWM=" + pixelCoordOnWorldMap );
