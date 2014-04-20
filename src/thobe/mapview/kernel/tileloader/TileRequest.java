@@ -68,11 +68,11 @@ public class TileRequest implements Runnable
 				if ( this.urlBuilder == null )
 					throw new IllegalArgumentException( "UrlBuilder is null." );
 
-				this.logger.info( "Loading " + logPrefix( this.tileId ) + "(tileNumber=" + this.tileNumber + ", center=" + this.tileNumber.getCenter( ).getFormatted( ) + ", size=" + Tile.TILE_SIZE_PX + "x" + Tile.TILE_SIZE_PX + ", zoom=" + this.tileNumber.getZoom( ) + ")" );
+				this.logger.fine( "Loading " + logPrefix( this.tileId ) + "(tileNumber=" + this.tileNumber + ", center=" + this.tileNumber.getCenter( ).getFormatted( ) + ", size=" + Tile.TILE_SIZE_PX + "x" + Tile.TILE_SIZE_PX + ", zoom=" + this.tileNumber.getZoom( ) + ")" );
 
 				URL url = this.urlBuilder.buildURL( this.tileNumber.getCenter( ), this.tileNumber.getZoom( ), Tile.TILE_SIZE_PX, Tile.TILE_SIZE_PX );
 
-				this.logger.info( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
+				this.logger.fine( logPrefix( this.tileId ) + " Connecting to: " + url + "..." );
 				URLConnection con = url.openConnection( );
 				con.setReadTimeout( READ_TIMEOUT );
 				con.setConnectTimeout( READ_TIMEOUT );

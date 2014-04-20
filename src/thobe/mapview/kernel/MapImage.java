@@ -30,6 +30,7 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.NoninvertibleTransformException;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.geom.Point2D.Double;
 import java.awt.image.BufferStrategy;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -236,7 +237,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 					camera.preConcatenate( tra );
 
 					// Determine the scale-factor.
-					float factor = 1 + ( e.getWheelRotation( ) / 10.0f );
+					float factor = 1 - ( e.getWheelRotation( ) / 10.0f );
 
 					// Scale the scene using the computed scale-factor.
 					AffineTransform sc = new AffineTransform( );
@@ -249,7 +250,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 					camera.preConcatenate( tra );
 
 					// Update the tiles and repaint all.
-					updateZoomLevel( );
+					updateZoomLevel( e.getPoint( ) );
 					updateTileGrid( );
 					createTileRequests( );
 					repaint( );
@@ -332,7 +333,6 @@ public class MapImage extends Canvas implements TileLoaderListener
 					camera.translate( newX, newY );
 
 					// update view/ tiles
-					updateZoomLevel( );
 					updateTileGrid( );
 					createTileRequests( );
 					repaint( );
@@ -369,6 +369,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 					camera.preConcatenate( tra );
 
 					// update view/ tiles
+					updateZoomLevel( e.getPoint( ) );
 					updateTileGrid( );
 					createTileRequests( );
 					repaint( );
@@ -635,13 +636,18 @@ public class MapImage extends Canvas implements TileLoaderListener
 		return missingGridElements;
 	}
 
-	private void updateZoomLevel( )
+	private void updateZoomLevel( Point2D cursorPos )
 	{
 		String dbgInfo = "scaleFactor=" + this.camera.getScaleX( ) + ", zoomLevel=" + this.zoomLevel;
 		boolean bZoomLevelModified = false;
 		boolean bScaleFactorModified = false;
 
 		double newScale = this.camera.getScaleX( );
+
+		// Compute the GeoCoord and the Tile under cursor in case the zoom-level has to be updated.
+		// If the zoom-level is updated this position is used to determine the new tile of map-center.
+		GeoCoord gcUnderCursor = this.posToGeoCoord( cursorPos );
+		Tile tileUnderCursor = this.getTileAt( cursorPos );
 
 		// Update/modify the zoom-level if the minimum scale factor was undershoot.
 		if ( this.camera.getScaleX( ) <= MIN_SCALE_FACTOR )
@@ -706,7 +712,12 @@ public class MapImage extends Canvas implements TileLoaderListener
 				entry.getValue( ).setValid( false );
 			}
 
-			dbgInfo += " -->scaleFactor=" + this.camera.getScaleX( ) + ", zoomLevel=" + this.zoomLevel;
+			// compute the new map-center according to the GeoCoord under current mouse-position.
+			this.tileNumberOfMapCenter = MercatorProjection.geoCoordToTileNumber( gcUnderCursor, zoomLevel );
+			this.mapCenterTile = tileUnderCursor;
+
+			dbgInfo += " -->scaleFactor=" + this.camera.getScaleX( ) + ", zoomLevel=" + this.zoomLevel + ", tileNumberOfMapCenter=" + this.tileNumberOfMapCenter + ", gcOfMapCenter=" + this.tileNumberOfMapCenter.getCenter( ).getFormatted( ) + ", mapCenterTile=" + this.mapCenterTile;
+
 			if ( DBG )
 				this.log.info( dbgInfo );
 		}// if ( bZoomLevelModified ).
@@ -753,27 +764,25 @@ public class MapImage extends Canvas implements TileLoaderListener
 		int idxOfLastColumn = ( numberOfVisibleColumns - 1 ) + column0;
 		int idxOfLastRow = ( numberOfVisibleRows - 1 ) + row0;
 
-		if ( DBG )
-		{
-			log.fine( "numberOfVisibleColumns=" + numberOfVisibleColumns + ", numberOfVisibleRows=" + numberOfVisibleRows + ", idxOfFirstColumn=" + column0 + ", idxOfFirstRow=" + row0 + ", idxOfLastColumn=" + idxOfLastColumn + ", idxOfLastRow=" + idxOfLastRow );
-			log.fine( "tileGridBounds=" + rectToString( this.tileGridBounds ) );
-		}
+		Point2D centerOfViewPort = new Point2D.Double( this.viewPort.getCenterX( ), this.viewPort.getCenterY( ) );
 
 		// compute column and row of the Tile containing the center of the map.
 		// Compute the column/row regarding the number of columns/rows.
 		int columnOfMapCenter = ( this.getNumTileColumns( ) / 2 ) + column0; //1->0, 2->1,3->2, ....
 		int rowOfMapCenter = ( this.getNumTileRows( ) / 2 ) + row0; //1->0, 2->1,3->2, ....
 
-		// check if an update of the map-center is necessary
-		Tile newPotentialMapCenterTile = this.viewPortTiles.get( Tile.colRowToTileId( columnOfMapCenter, rowOfMapCenter ) );
-		if ( ( newPotentialMapCenterTile != null ) && ( newPotentialMapCenterTile != this.mapCenterTile ) )
+		if ( this.mapCenterTile != null )
 		{
-			this.mapCenterTile = newPotentialMapCenterTile;
-			this.tileNumberOfMapCenter = this.mapCenterTile.getTileNumber( );
+			columnOfMapCenter = this.mapCenterTile.getColumn( );
+			rowOfMapCenter = this.mapCenterTile.getRow( );
+		}
 
-			if ( DBG )
-				log.fine( "Tile [" + this.mapCenterTile.getTileId( ) + "] Is the new Tile containing the map-center (geoCoord=" + this.mapCenterTile.getCenter( ).getFormatted( ) + ")" );
-		}// if ( ( newPotentialMapCenterTile != null ) && ( newPotentialMapCenterTile != this.mapCenterTile ) ).
+		if ( DBG )
+		{
+			log.info( "numberOfVisibleColumns=" + numberOfVisibleColumns + ", numberOfVisibleRows=" + numberOfVisibleRows + ", idxOfFirstColumn=" + column0 + ", idxOfFirstRow=" + row0 + ", idxOfLastColumn=" + idxOfLastColumn + ", idxOfLastRow=" + idxOfLastRow );
+			log.info( "tileGridBounds=" + rectToString( this.tileGridBounds ) + ", centerOfViewPort=" + centerOfViewPort );
+			log.info( "columnOfMapCenter=" + columnOfMapCenter + ", rowOfMapCenter=" + rowOfMapCenter );
+		}
 
 		// 1. Create Tiles that are missing (where not created yet but are visible on the map).
 		// 2. Update geo-coordinates and zoom-level of existing Tiles. 
@@ -965,7 +974,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 				gr.setFont( DEBUG_FONT );
 				gr.drawString( "ImgCoord=(" + viewPortTile.getX( ) + "," + viewPortTile.getY( ) + ")", posX + 10, posY + 20 );
 				gr.drawString( "GeoCoord=(" + viewPortTile.getCenter( ).getFormatted( ) + ")", posX + 10, posY + 35 );
-				gr.drawString( "ZoomLevel=(" + viewPortTile.getZoomLevel( ) + ")", posX + 10, posY + 50 );
+				gr.drawString( "TileNumber=(" + viewPortTile.getTileNumber( ) + ")", posX + 10, posY + 50 );
+				gr.drawString( "ZoomLevel=(" + viewPortTile.getZoomLevel( ) + ")", posX + 10, posY + 65 );
 
 				gr.setFont( DEBUG_FONT_BIG );
 				gr.drawString( viewPortTile.getTileId( ) + "", Tile.HALF_TILE_SIZE_PX + posX, Tile.HALF_TILE_SIZE_PX + posY );
@@ -1002,10 +1012,10 @@ public class MapImage extends Canvas implements TileLoaderListener
 
 				if ( DRAW_VIEWPORTS )
 				{
-					// draw view port
+					// draw view port (RED)
 					gr.setStroke( DEBUG_STROKE );
 					gr.setFont( DEBUG_FONT );
-					gr.setColor( Color.blue );
+					gr.setColor( Color.RED );
 
 					int x0 = ( int ) this.viewPort.getX( );
 					int y0 = ( int ) this.viewPort.getY( );
@@ -1015,8 +1025,9 @@ public class MapImage extends Canvas implements TileLoaderListener
 					gr.drawString( "Canvas: Size=(" + this.getWidth( ) + "," + this.getHeight( ) + ")", 10, 20 );
 					gr.drawString( "ViewPort: Pos=(" + x0 + "," + y0 + "), Size=(" + width + "," + height + ")", 10, 40 );
 
-					// draw inner extended view port
+					// draw inner extended view port (BLUE)
 					gr.setStroke( DEBUG_STROKE );
+					gr.setColor( Color.BLUE );
 
 					x0 = ( int ) this.innerExtViewPort.getX( );
 					y0 = ( int ) this.innerExtViewPort.getY( );
@@ -1025,10 +1036,10 @@ public class MapImage extends Canvas implements TileLoaderListener
 					gr.drawRect( x0, y0, width, height );
 
 					gr.setFont( DEBUG_FONT );
-					gr.setColor( Color.BLUE );
 					gr.drawString( "InnerExtViewPort: Pos=(" + x0 + "," + y0 + "), Size=(" + width + "," + height + ")", 10, 60 );
 
-					// draw outer extended view port
+					// draw outer extended view port (GREEN)
+					gr.setColor( Color.GREEN );
 					x0 = ( int ) this.outerExtViewPort.getX( );
 					y0 = ( int ) this.outerExtViewPort.getY( );
 					width = ( int ) this.outerExtViewPort.getWidth( );
@@ -1038,8 +1049,8 @@ public class MapImage extends Canvas implements TileLoaderListener
 					gr.drawString( "MapCenter: (" + this.tileNumberOfMapCenter.getCenter( ).getFormatted( ), 10, 100 );
 
 					// draw the bounds of the tile-grid
-					gr.setColor( Color.RED );
-					gr.drawRect( ( int ) this.tileGridBounds.getX( ), ( int ) this.tileGridBounds.getY( ), ( int ) this.tileGridBounds.getWidth( ), ( int ) this.tileGridBounds.getHeight( ) );
+					//gr.setColor( Color.RED );
+					//gr.drawRect( ( int ) this.tileGridBounds.getX( ), ( int ) this.tileGridBounds.getY( ), ( int ) this.tileGridBounds.getWidth( ), ( int ) this.tileGridBounds.getHeight( ) );
 
 				}// if ( DRAW_VIEWPORTS ).
 				gr.dispose( );
