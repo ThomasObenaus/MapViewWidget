@@ -853,7 +853,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 			}
 		}// if(this.viewPortTiles.size( ) > toRemove.size( )).
 
-		this.updateTileGridBounds( );
+		this.updateTileGridBounds( ); 
 
 	}
 
