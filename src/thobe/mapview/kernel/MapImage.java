@@ -62,7 +62,7 @@ public class MapImage extends Canvas implements TileLoaderListener
 	private static double				MIN_SCALE_FACTOR					= 0.7;
 	private static double				MAX_SCALE_FACTOR					= 1.3;
 	private static int					MIN_ZOOM_LEVEL						= 1;
-	private static int					MAX_ZOOM_LEVEL						= 18;
+	private static int					MAX_ZOOM_LEVEL						= 18; 
 	private static boolean				DBG;
 	private static boolean				DRAW_VIEWPORTS;
 	private static final Color			DEBUG_COLOR							= Color.BLACK;
